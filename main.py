@@ -24,7 +24,7 @@ fig, ax = plt.subplots(figsize=(10, 5))
 ax.plot(x, tail_df['Close'], color='black', lw=1.2)
 
 levels = {"P50": 0, "P48": 1, "P45": 2, "P40": 3, "P35": 4}
-colors = {'P50': 'red', 'P48': 'green', 'P45': 'blue', 'P40': 'yellow', 'P35': 'gray'}
+colors = {'P50': 'red', 'P48': 'green', 'P45': 'blue', 'P40': 'brown', 'P35': 'gray'}
 for label, diff in levels.items():
     ax.axhline(max_price - (diff * std), color=colors[label], linestyle='--', alpha=0.5)
 
