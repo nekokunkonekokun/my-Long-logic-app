@@ -3,33 +3,37 @@ import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
 
-st.title("Nikkei 225 Deviation Monitor")
+st.title("NIY=F Strategic 3-Level Chart")
 
 # データ取得
 df = yf.download("NIY=F", period="1y", interval="1h")
 df.index = df.index.tz_convert('Asia/Tokyo')
 
-# スカラー値への変換 (.item() を使用)
-max_price = df['Close'].max().item()
-current_price = df['Close'].iloc[-1].item()
-std = df['Close'].rolling(window=25).std().iloc[-1].item()
+max_price = df['Close'].max()
+current = df['Close'].iloc[-1]
+std = df['Close'].rolling(window=25).std().iloc[-1]
 current_time = df.index[-1].strftime('%Y-%m-%d %H:%M')
 
-# 偏差計算
-current_dev = 50 - ((max_price - current_price) / std)
+# レベル定義 (P50を最高値として計算)
+levels = {"P50 (Red)": 0, "P48 (Green)": 2, "P45 (Blue)": 5, "P40 (Gray)": 10}
 
-# 表示
-st.write(f"**Last Update:** {current_time}")
-st.metric("Current Price", f"{current_price:.0f}", f"Deviation: {current_dev:.1f}")
+st.sidebar.write(f"**LATEST PRICE**: {current:.0f}")
+st.sidebar.write("---")
+st.sidebar.subheader("TARGET LEVELS")
 
-st.subheader("Price Levels")
-cols = st.columns(3)
-for i, dev in enumerate([50, 40, 30]):
-    price = max_price - (50 - dev) * std
-    cols[i].metric(f"Dev {dev}", f"{price:.0f}")
+# 空間的パネル表示
+for label, diff in levels.items():
+    price_level = max_price - (diff * std)
+    st.sidebar.write(f"{label} : {price_level:.0f}")
 
+st.sidebar.write("---")
+st.sidebar.write(f"Sigma(25d) : {std:.0f}")
+st.sidebar.write(f"Time : {current_time}")
+
+# グラフ描画
 fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(df.index[-168:], df['Close'].tail(168), color='black', label='Price')
-ax.axhline(max_price, color='red', linestyle='--', label='Dev 50 (Max)')
-ax.grid(True)
+ax.plot(df.index[-168:], df['Close'].tail(168), color='black', lw=1)
+for label, diff in levels.items():
+    ax.axhline(max_price - (diff * std), linestyle='--', alpha=0.5)
+ax.grid(True, alpha=0.3)
 st.pyplot(fig)
