@@ -12,6 +12,8 @@ df.index = df.index.tz_convert('Asia/Tokyo')
 max_price = df['Close'].max().item()
 current = df['Close'].iloc[-1].item()
 std = df['Close'].rolling(window=375).std().iloc[-1].item()
+
+# 修正：levelsの係数（diff）と完全に同期させる計算式
 current_dev = 50 - ((max_price - current) / std)
 
 # X軸の準備：直近168個のデータを使用
