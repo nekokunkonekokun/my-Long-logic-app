@@ -11,7 +11,7 @@ df.index = df.index.tz_convert('Asia/Tokyo')
 
 max_price = df['Close'].max().item()
 current = df['Close'].iloc[-1].item()
-std = df['Close'].rolling(window=375).std().iloc[-1].item()
+std = df['Close'].rolling(window=575).std().iloc[-1].item()
 
 # 修正ロジック：各レベルの価格を算出し、現在の位置を線形補間する
 levels = {"P50": 0, "P48": 1, "P45": 2, "P40": 3, "P35": 4}
