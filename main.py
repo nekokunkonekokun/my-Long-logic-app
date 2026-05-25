@@ -45,4 +45,8 @@ ax.text(0.02, 0.02, panel_text, transform=ax.transAxes, fontsize=9,
 ax.xaxis.set_major_locator(ticker.MaxNLocator(8))
 ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda i, pos: dates[int(i)] if 0 <= int(i) < len(dates) else ""))
 ax.grid(True, alpha=0.3)
+# データの最終更新日時を画面に表示
+last_update = df.index[-1].strftime('%Y/%m/%d %H:%M:%S')
+st.info(f"📊 最終データ更新時刻 (日本時間): {last_update}")
+
 st.pyplot(fig)
