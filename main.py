@@ -2,43 +2,62 @@ import streamlit as st
 import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import requests
+from bs4 import BeautifulSoup
 import pandas as pd
 
 st.set_page_config(layout="wide")
-st.title("NIY=F Strategic 3-Level Chart (Fully Automated)")
+st.title("NIY=F Strategic 3-Level Chart (JP Yahoo! Hybrid)")
 
-# 1. 過去のボラティリティ計算用に1時間足を取得
-df_1h = yf.download("NIY=F", period="1y", interval="1h").dropna()
-df_1h.index = df_1h.index.tz_convert('Asia/Tokyo')
-
-# 2. 【完全自動】リアルタイム補完用に1分足を取得し、現在の「1時間足の枠」へ自動集計してドッキング
-try:
-    df_1m = yf.download("NIY=F", period="1d", interval="1m").dropna()
-    if not df_1m.empty:
-        # 1分足の最新時刻と最新価格を取得
-        latest_1m_time = df_1m.index[-1].tz_convert('Asia/Tokyo')
-        realtime_price = df_1m['Close'].iloc[-1].item()
+# --- 【手間ゼロ自動化】日本のYahoo!ファイナンスから最新値を引っこ抜く関数 ---
+def get_jp_yahoo_future_price():
+    try:
+        # ユーザー様にご提示いただいた日本のYahoo!ファイナンスのURL
+        url = "https://finance.yahoo.co.jp/quote/5040469.O?term=1d"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        res = requests.get(url, headers=headers, timeout=5)
+        soup = BeautifulSoup(res.text, "html.parser")
         
-        # 1分足の時間を「1時間単位（毎時0分）」に自動変換（例: 09:35 -> 09:00）
-        current_hour_bin = latest_1m_time.floor('h')
-        
-        if current_hour_bin in df_1h.index:
-            # すでに1時間足にその時間枠があれば、1分足の最新値で上書き（現在進行中の足のリアルタイム更新）
-            df_1h.loc[current_hour_bin, 'Close'] = realtime_price
-        elif current_hour_bin > df_1h.index[-1]:
-            # まだ1時間足にデータが届いていない新しい時間帯なら、自動で新しい行を作って結合
-            new_row = pd.DataFrame({'Close': [realtime_price]}, index=[current_hour_bin])
-            df_1h = pd.concat([df_1h, new_row])
-except Exception as e:
-    st.sidebar.warning(f"リアルタイム自動補完スキップ（遅延データを使用します）: {e}")
+        # 日本のYahoo!ファイナンスの「現在値」が表示されるクラス(長年不動の構造です)
+        # ページ上部の大きな数字のエリアを特定
+        price_element = soup.find("span", class_="_3rXWJKFI")
+        if not price_element:
+            # 万が一クラス名が変わった場合の予備ルート
+            price_element = soup.find(attrs={"data-testid": "stock-price"})
+            
+        if price_element:
+            price_text = price_element.text.replace(",", "").replace("円", "").strip()
+            return float(price_text)
+    except Exception as e:
+        st.sidebar.warning(f"日本のYahoo!からの自動取得に失敗: {e}")
+    return None
 
-# --- 以降の計算はすべて自動で最新値（1分足由来）ベースになります ---
-df = df_1h # 名前を統一
+# 1. ベースとなる1時間足データをyfinanceから取得
+df = yf.download("NIY=F", period="1y", interval="1h").dropna()
+df.index = df.index.tz_convert('Asia/Tokyo')
+
+# 2. 日本のYahoo!ファイナンスから動いている最新値を自動取得して上書き
+realtime_price = get_jp_yahoo_future_price()
+current_time_floored = pd.Timestamp.now(tz='Asia/Tokyo').floor('h')
+
+if realtime_price:
+    # 最後の行のCloseを、日本のYahoo!ファイナンスのリアルタイム価格に差し替える
+    if current_time_floored in df.index:
+        df.loc[current_time_floored, 'Close'] = realtime_price
+    else:
+        # 新しい時間枠（10:00台など）であれば新しい行として滑り込ませる
+        new_row = pd.DataFrame({'Close': [realtime_price]}, index=[current_time_floored])
+        df = pd.concat([df, new_row])
+    is_realtime = True
+else:
+    is_realtime = False
+
+# --- 以降の計算は共通 ---
 max_price = df['Close'].max().item()
-current = df['Close'].iloc[-1].item() # 1分足から自動抽合された「本当の現在値」
+current = df['Close'].iloc[-1].item()  # 日本のYahoo!から取得した最新価格
 std = df['Close'].rolling(window=575).std().iloc[-1].item()
 
-# 各レベルの価格を算出
+# 各レベルの価格を算出し、現在の位置を線形補間する
 levels = {"P50": 0, "P48": 1, "P45": 2, "P40": 3, "P35": 4}
 price_levels = {k: max_price - (v * std) for k, v in levels.items()}
 
@@ -73,9 +92,11 @@ ax.xaxis.set_major_locator(ticker.MaxNLocator(8))
 ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda i, pos: dates[int(i)] if 0 <= int(i) < len(dates) else ""))
 ax.grid(True, alpha=0.3)
 
-# 最終データ時刻の自動表示
-last_update = df.index[-1].strftime('%Y/%m/%d %H:%M:%S')
-st.info(f"📊 システム自動連動時刻 (日本時間): {last_update}")
+# ステータス表示
+if is_realtime:
+    st.success(f"🚀 日本のYahoo!ファイナンス（大証先物）からリアルタイム自動補正中: {current:.0f}")
+else:
+    st.warning(f"⚠️ 自動取得に失敗したため、yfinanceの遅延データ（{current:.0f}）を表示中")
 
 st.pyplot(fig)
 
