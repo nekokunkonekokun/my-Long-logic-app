@@ -18,6 +18,9 @@ def get_data():
     return df
 
 df = get_data()
+
+# データの最終更新時刻を取得
+last_updated = df.index[-1]
 current_max = df['Close'].max().item()
 
 # 新高値が出たら更新
@@ -61,8 +64,7 @@ def jst_utc_formatter(i, pos):
     idx = int(i)
     if 0 <= idx < len(tail_df):
         dt_jst = tail_df.index[idx]
-        dt_utc = dt_jst - timedelta(hours=9)
-        return f"{dt_jst.strftime('%m/%d %H:%M')}\n({dt_utc.strftime('%H:%M')} UTC)"
+        return f"{dt_jst.strftime('%m/%d %H:%M')}"
     return ""
 
 ax.xaxis.set_major_formatter(ticker.FuncFormatter(jst_utc_formatter))
@@ -74,7 +76,8 @@ plt.subplots_adjust(left=0.08, right=0.98, top=0.95, bottom=0.2)
 # グラフ出力
 st.pyplot(fig, use_container_width=True)
 
-# 凡例セクション（枠線なし、各ラベルを独立）
+# タイムスタンプと各ラベルの表示
+st.caption(f"Data Last Updated: {last_updated.strftime('%Y-%m-%d %H:%M')} JST")
 st.markdown("---")
 col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
 
