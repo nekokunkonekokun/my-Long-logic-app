@@ -49,13 +49,13 @@ else:
 # グラフ描画
 tail_df = df.tail(168)
 fig, ax = plt.subplots(figsize=(16, 7))
-ax.plot(range(len(tail_df)), tail_df['Close'], color='black', lw=1.5, label='Price')
+ax.plot(range(len(tail_df)), tail_df['Close'], color='black', lw=1.5)
 ax.set_xlim(0, len(tail_df) - 1)
 
 # 破線の描画
 colors = {'P50': 'red', 'P48': 'green', 'P45': 'blue', 'P40': 'brown', 'P35': 'gray'}
 for label, price in price_levels.items():
-    ax.axhline(price, color=colors[label], linestyle='--', alpha=0.6, label=label)
+    ax.axhline(price, color=colors[label], linestyle='--', alpha=0.6)
 
 # JST/UTC軸フォーマット
 def jst_utc_formatter(i, pos):
@@ -71,7 +71,7 @@ ax.xaxis.set_major_locator(ticker.MaxNLocator(7))
 plt.xticks(rotation=30, fontsize=10, ha='right')
 ax.grid(True, alpha=0.4)
 
-# グラフを表示
+# グラフを表示（空白を作らない）
 plt.subplots_adjust(left=0.08, right=0.98, top=0.95, bottom=0.2)
 st.pyplot(fig, use_container_width=True)
 
@@ -83,17 +83,18 @@ st.markdown("""
     padding: 20px;
     border-radius: 15px;
     background-color: #f0f2f6;
-    margin-top: 10px;
+    margin-top: 20px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="big-box">', unsafe_allow_html=True)
+# 6つの列で情報を整理（P35も個別に表示）
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 c1.metric("Current", f"{current:.0f}")
 c2.metric("Dev", f"{current_dev:.1f}")
 c3.metric("P50", f"{p50:.0f}")
-c4.metric("P48", f"{price_levels['P48']:.0f}")
-c5.metric("P45", f"{price_levels['P45']:.0f}")
-c6.metric("P40 / P35", f"{price_levels['P40']:.0f} / {price_levels['P35']:.0f}")
+c4.metric("P48 / P45", f"{price_levels['P48']:.0f} / {price_levels['P45']:.0f}")
+c5.metric("P40", f"{price_levels['P40']:.0f}")
+c6.metric("P35", f"{price_levels['P35']:.0f}")
 st.markdown('</div>', unsafe_allow_html=True)
