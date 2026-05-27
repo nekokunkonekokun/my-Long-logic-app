@@ -5,7 +5,7 @@ import matplotlib.ticker as ticker
 from datetime import timedelta
 
 st.set_page_config(layout="wide")
-st.title("Strategic Analysis Detail (Aligned & Optimized)")
+st.title("NIF=Y Analysis")
 
 @st.cache_data(ttl=3600)
 def get_analysis_data():
