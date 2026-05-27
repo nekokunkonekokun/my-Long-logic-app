@@ -31,10 +31,10 @@ std = df['Close'].rolling(window=575).std().iloc[-1].item()
 p50 = st.session_state.p50_fixed
 price_levels = {
     "P50": p50,
-    "P48": p50 - (2 * std),
-    "P45": p50 - (5 * std),
-    "P40": p50 - (10 * std),
-    "P35": p50 - (15 * std)
+    "P48": p50 - (1 * std),
+    "P45": p50 - (2 * std),
+    "P40": p50 - (3 * std),
+    "P35": p50 - (4 * std)
 }
 
 # Dev計算
