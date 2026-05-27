@@ -12,3 +12,10 @@ numpy
 matplotlib
 scipy
 pytz
+#N225用
+yfinance
+pandas
+scipy
+matplotlib
+feedparser
+
