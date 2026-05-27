@@ -1,7 +1,6 @@
 import streamlit as st
 import yfinance as yf
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import pandas as pd
 
 st.set_page_config(layout="wide")
@@ -17,6 +16,8 @@ def get_data():
     return df
 
 df = get_data()
+# タイムスタンプ取得用
+last_updated = df.index[-1]
 current = df['Close'].iloc[-1].item()
 current_max = df['Close'].max().item()
 
