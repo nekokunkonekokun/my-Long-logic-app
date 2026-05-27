@@ -14,17 +14,31 @@ if 'p50_fixed' not in st.session_state:
 
 @st.cache_data(ttl=60)
 def get_data():
+    # データを取得
     df = yf.download("NIY=F", period="7d", interval="30m")
+    
+    if df.empty:
+        return df
+    
+    # タイムゾーンを強制的に変換
     df.index = df.index.tz_convert('Asia/Tokyo')
     
-    # 欠損日時の処理：30分ごとのインデックスを生成して補完
-    full_idx = pd.date_range(start=df.index.min(), end=df.index.max(), freq='30T')
-    df = df.reindex(full_idx)
-    # 前の値で埋める（取引がない時間は直近の価格を維持）
+    # 日付範囲を安全に取得
+    start_time = df.index.min().floor('30T')
+    end_time = df.index.max().ceil('30T')
+    
+    # 既存のインデックスに合わせるためのリサンプリング
+    df = df.resample('30T').asfreq()
+    # 価格データのみ前値補完
     df['Close'] = df['Close'].ffill()
     return df
 
 df = get_data()
+
+if df.empty:
+    st.error("データが取得できませんでした。時間をおいて再試行してください。")
+    st.stop()
+
 last_updated = df.index[-1]
 current_max = df['Close'].max().item()
 
@@ -32,8 +46,8 @@ if current_max > st.session_state.p50_fixed:
     st.session_state.p50_fixed = current_max
 
 p50 = st.session_state.p50_fixed
-# 30分足に合わせた標準偏差期間 (575 * 2 = 1150)
-std = df['Close'].rolling(window=1150, min_periods=100).std().iloc[-1].item()
+# 標準偏差期間: 30分足なので 1150本 (575*2)
+std = df['Close'].rolling(window=1150, min_periods=10).std().iloc[-1].item()
 current = df['Close'].iloc[-1].item()
 
 price_levels = {
@@ -56,10 +70,12 @@ else:
 fig, ax = plt.subplots(figsize=(16, 7))
 ax.plot(df.index, df['Close'], color='black', lw=1.5)
 
+# ライン描画
 colors = {'P50': 'red', 'P48': 'green', 'P45': 'blue', 'P40': 'brown', 'P35': 'gray'}
 for label, price in price_levels.items():
     ax.axhline(price, color=colors[label], linestyle='--', alpha=0.6)
 
+# X軸の設定
 ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d\n%H:%M'))
 plt.xticks(rotation=0, fontsize=10)
@@ -68,12 +84,13 @@ plt.subplots_adjust(left=0.08, right=0.98, top=0.95, bottom=0.2)
 
 st.pyplot(fig, use_container_width=True)
 
+# 指標表示
 st.caption(f"Data Last Updated: {last_updated.strftime('%Y-%m-%d %H:%M')} JST")
 st.markdown("---")
 cols = st.columns(7)
 cols[0].metric("Current", f"{current:.0f}")
 cols[1].metric("Dev", f"{current_dev:.1f}")
-cols[2].metric("P50", f"{price_levels['P50']:.0f}")
+cols[2].metric("P50", f"{p50:.0f}")
 cols[3].metric("P48", f"{price_levels['P48']:.0f}")
 cols[4].metric("P45", f"{price_levels['P45']:.0f}")
 cols[5].metric("P40", f"{price_levels['P40']:.0f}")
