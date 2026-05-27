@@ -6,7 +6,7 @@ from datetime import timedelta
 
 # ページ設定
 st.set_page_config(layout="wide")
-st.title("NIY=F Strategic 3-Level Chart")
+st.title("NIY=F 4-Level Chart")
 
 # セッション管理（高値更新ロジック用）
 if 'p50_fixed' not in st.session_state:
