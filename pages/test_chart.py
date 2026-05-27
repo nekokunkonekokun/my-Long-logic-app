@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from datetime import timedelta
 
-st.title("Strategic Analysis Detail")
+st.set_page_config(layout="wide")
+st.title("Strategic Analysis Detail (Aligned Right)")
 
-# データロードとロジック（そのまま）
 @st.cache_data(ttl=3600)
 def get_analysis_data():
     df = yf.download("NIY=F", period="1y", interval="1h").dropna()
@@ -16,6 +16,7 @@ def get_analysis_data():
     std = df['Close'].rolling(window=575).std().iloc[-1].item()
     levels = {"P50": 0, "P48": 1, "P45": 2, "P40": 3, "P35": 4}
     price_levels = {k: max_price - (v * std) for k, v in levels.items()}
+    # Dev計算ロジック（そのまま）
     if current >= price_levels["P48"]:
         current_dev = 48 + (50 - 48) * (current - price_levels["P48"]) / (max_price - price_levels["P48"])
     elif current >= price_levels["P45"]:
@@ -27,37 +28,38 @@ def get_analysis_data():
 df, price_levels, current, current_dev = get_analysis_data()
 tail_df = df.tail(168)
 
-# 1. グラフの表示幅を最大化する（use_container_width=True）
-fig, ax = plt.subplots(figsize=(15, 6))
+# グラフ描画
+fig, ax = plt.subplots(figsize=(24, 8))
 x = range(len(tail_df))
-ax.plot(x, tail_df['Close'], color='black', lw=1.2)
+ax.plot(x, tail_df['Close'], color='black', lw=1.5)
 
-# 水平線と凡例
+# --- 軸の範囲をデータにぴったり合わせる ---
+ax.set_xlim(0, len(tail_df) - 1)
+
+# Pラインと凡例（そのまま）
 colors = {'P50': 'red', 'P48': 'green', 'P45': 'blue', 'P40': 'brown', 'P35': 'gray'}
 for label, price in price_levels.items():
-    ax.axhline(price, color=colors[label], linestyle='--', alpha=0.5)
+    ax.axhline(price, color=colors[label], linestyle='--', alpha=0.6)
 
 panel_text = f"Current: {current:.0f}\nDev: {current_dev:.1f}\n" + \
              "\n".join([f"{k}: {p:.0f}" for k, p in price_levels.items()])
-ax.text(0.02, 0.02, panel_text, transform=ax.transAxes, fontsize=10, 
-        bbox=dict(facecolor='white', alpha=0.8), ha='left', va='bottom')
+ax.text(0.01, 0.01, panel_text, transform=ax.transAxes, fontsize=10, 
+        bbox=dict(facecolor='white', alpha=0.9), ha='left', va='bottom')
 
-# 2. X軸：JST基準のフォーマッター
-def jst_utc_formatter(i, pos):
+# JST/UTCフォーマッター
+def dual_time_formatter(i, pos):
     idx = int(i)
     if 0 <= idx < len(tail_df):
         dt_jst = tail_df.index[idx]
-        # JSTからUTCを引くのではなく、JSTをそのままメインに表示する
         dt_utc = dt_jst - timedelta(hours=9)
         return f"{dt_jst.strftime('%m/%d %H:%M')}\n({dt_utc.strftime('%H:%M')} UTC)"
     return ""
 
-ax.xaxis.set_major_formatter(ticker.FuncFormatter(jst_utc_formatter))
-ax.xaxis.set_major_locator(ticker.MaxNLocator(10))
+ax.xaxis.set_major_formatter(ticker.FuncFormatter(dual_time_formatter))
+ax.xaxis.set_major_locator(ticker.MaxNLocator(16))
 
-plt.xticks(rotation=45, fontsize=9, ha='right')
-plt.tight_layout()
-ax.grid(True, alpha=0.3)
+plt.xticks(rotation=30, fontsize=9, ha='right')
+ax.grid(True, alpha=0.4)
+plt.subplots_adjust(left=0.05, right=0.98, top=0.95, bottom=0.15)
 
-# 3. Streamlit側でコンテナ幅いっぱいに引き伸ばす
 st.pyplot(fig, use_container_width=True)
