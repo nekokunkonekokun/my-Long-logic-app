@@ -16,7 +16,6 @@ def get_data():
     return df
 
 df = get_data()
-# タイムスタンプ取得用
 last_updated = df.index[-1]
 current = df['Close'].iloc[-1].item()
 current_max = df['Close'].max().item()
@@ -45,9 +44,15 @@ else:
 
 # グラフ描画
 fig, ax = plt.subplots(figsize=(16, 7))
-ax.plot(range(len(df.tail(168))), df['Close'].tail(168), color='black', lw=1.5)
+tail_df = df.tail(168)
+ax.plot(range(len(tail_df)), tail_df['Close'], color='black', lw=1.5)
+
+# 横の破線
 for label, price in price_levels.items():
     ax.axhline(price, color={'P50':'red','P48':'green','P45':'blue','P40':'brown','P35':'gray'}[label], linestyle='--', alpha=0.6)
+
+# ★最新時刻の縦破線を追加（インデックスの末尾）
+ax.axvline(x=len(tail_df)-1, color='orange', linestyle=':', lw=2, label='Last Data')
 
 st.pyplot(fig, use_container_width=True)
 
