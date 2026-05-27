@@ -44,8 +44,8 @@ else:
 # グラフ描画
 tail_df = df.tail(168)
 fig, ax = plt.subplots(figsize=(10, 9)) # 縦長に設定
-fig.patch.set_facecolor('white') # 背景をStreamlitの黒に
-ax.set_facecolor('#0E1117') # グラフ内も黒に合わせるならここも調整可
+fig.patch.set_facecolor('#0E1117') # 背景をStreamlitの黒に
+ax.set_facecolor('White') # グラフ内も黒に合わせるならここも調整可
 
 ax.plot(range(len(tail_df)), tail_df['Close'], color='white', lw=1.5)
 ax.set_xlim(0, len(tail_df) - 1)
