@@ -20,16 +20,15 @@ def get_data():
 df = get_data()
 current_max = df['Close'].max().item()
 
-# 新高値が出たら更新（追従して固定）
+# 新高値が出たら更新
 if current_max > st.session_state.p50_fixed:
     st.session_state.p50_fixed = current_max
 
 p50 = st.session_state.p50_fixed
-# 標準偏差（575本）を計算
 std = df['Close'].rolling(window=575).std().iloc[-1].item()
 current = df['Close'].iloc[-1].item()
 
-# P50を基準に他のラインを計算
+# 各レベルの計算
 price_levels = {
     "P50": p50,
     "P48": p50 - (1 * std),
@@ -52,12 +51,12 @@ fig, ax = plt.subplots(figsize=(16, 7))
 ax.plot(range(len(tail_df)), tail_df['Close'], color='black', lw=1.5)
 ax.set_xlim(0, len(tail_df) - 1)
 
-# 破線の描画
+# 各ラインの描画
 colors = {'P50': 'red', 'P48': 'green', 'P45': 'blue', 'P40': 'brown', 'P35': 'gray'}
 for label, price in price_levels.items():
     ax.axhline(price, color=colors[label], linestyle='--', alpha=0.6)
 
-# JST/UTC軸フォーマット
+# 軸フォーマット
 def jst_utc_formatter(i, pos):
     idx = int(i)
     if 0 <= idx < len(tail_df):
@@ -70,31 +69,19 @@ ax.xaxis.set_major_formatter(ticker.FuncFormatter(jst_utc_formatter))
 ax.xaxis.set_major_locator(ticker.MaxNLocator(7))
 plt.xticks(rotation=30, fontsize=10, ha='right')
 ax.grid(True, alpha=0.4)
-
-# グラフを表示（空白を作らない）
 plt.subplots_adjust(left=0.08, right=0.98, top=0.95, bottom=0.2)
+
+# グラフ出力
 st.pyplot(fig, use_container_width=True)
 
-# --- 枠線付きの大きな凡例エリア ---
-st.markdown("""
-<style>
-.big-box {
-    border: 3px solid #333;
-    padding: 20px;
-    border-radius: 15px;
-    background-color: #f0f2f6;
-    margin-top: 20px;
-}
-</style>
-""", unsafe_allow_html=True)
+# 凡例セクション（枠線なし、各ラベルを独立）
+st.markdown("---")
+col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
 
-st.markdown('<div class="big-box">', unsafe_allow_html=True)
-# 6つの列で情報を整理（P35も個別に表示）
-c1, c2, c3, c4, c5, c6 = st.columns(6)
-c1.metric("Current", f"{current:.0f}")
-c2.metric("Dev", f"{current_dev:.1f}")
-c3.metric("P50", f"{p50:.0f}")
-c4.metric("P48 / P45", f"{price_levels['P48']:.0f} / {price_levels['P45']:.0f}")
-c5.metric("P40", f"{price_levels['P40']:.0f}")
-c6.metric("P35", f"{price_levels['P35']:.0f}")
-st.markdown('</div>', unsafe_allow_html=True)
+col1.metric("Current", f"{current:.0f}")
+col2.metric("Dev", f"{current_dev:.1f}")
+col3.metric("P50", f"{price_levels['P50']:.0f}")
+col4.metric("P48", f"{price_levels['P48']:.0f}")
+col5.metric("P45", f"{price_levels['P45']:.0f}")
+col6.metric("P40", f"{price_levels['P40']:.0f}")
+col7.metric("P35", f"{price_levels['P35']:.0f}")
