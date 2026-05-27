@@ -4,3 +4,11 @@ matplotlib
 requests
 beautifulsoup4
 pandas
+#ここはLong ロジック用
+streamlit
+yfinance
+pandas
+numpy
+matplotlib
+scipy
+pytz
