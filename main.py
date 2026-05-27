@@ -50,6 +50,9 @@ for label, price in price_levels.items():
 
 st.pyplot(fig, use_container_width=True)
 
+# タイムスタンプ表示
+st.write(f"Data Last Updated: {last_updated.strftime('%Y-%m-%d %H:%M')} JST")
+
 # 凡例表示
 cols = st.columns(7)
 cols[0].metric("Current", f"{current:.0f}")
