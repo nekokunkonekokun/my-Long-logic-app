@@ -74,7 +74,7 @@ def jst_utc_formatter(i, pos):
 
 ax.xaxis.set_major_formatter(ticker.FuncFormatter(jst_utc_formatter))
 ax.xaxis.set_major_locator(ticker.MaxNLocator(7))
-plt.xticks(rotation=30, fontsize=10, ha='right')
+plt.xticks(rotation=30, fontsize=14, ha='right')
 ax.grid(True, alpha=0.4)
 plt.subplots_adjust(left=0.06, right=0.98, top=0.95, bottom=0.18)
 
