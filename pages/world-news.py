@@ -8,7 +8,7 @@ from datetime import datetime
 # --- 設定 ---
 SOURCES = ['jp.reuters.com', 'nikkei.com', 'sankei.com']
 KEYWORDS = 'ホルムズ海峡 OR 原油 OR 日経平均 OR イラン OR イスラエル'
-NIKKEI_THRESHOLD = 5.8
+NIKKEI_THRESHOLD = 7.0
 OPINION_MARKERS = ['予想', '予測', '見通し', '目標', 'ターゲット', 'ストラテジスト', '見方', '議論', '焦点', 'コラム', '解説', '強気', '弱気', 'メド', 'シナリオ']
 
 def analyze_headline(title):
