@@ -2,91 +2,55 @@ import streamlit as st
 import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import matplotlib.dates as mdates
 import pandas as pd
-from datetime import timedelta
 
 st.set_page_config(layout="wide")
-st.title("NIY=F Strategic 3-Level Chart (30m)")
+st.title("NIY=F Strategic 3-Level Chart")
 
 if 'p50_fixed' not in st.session_state:
     st.session_state.p50_fixed = 0.0
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300)
 def get_data():
-    # データを取得
-    df = yf.download("NIY=F", period="7d", interval="30m")
-    
-    if df.empty:
-        return df
-    
-    # タイムゾーンを強制的に変換
+    df = yf.download("NIY=F", period="1y", interval="1h").dropna()
     df.index = df.index.tz_convert('Asia/Tokyo')
-    
-    # 日付範囲を安全に取得
-    start_time = df.index.min().floor('30T')
-    end_time = df.index.max().ceil('30T')
-    
-    # 既存のインデックスに合わせるためのリサンプリング
-    df = df.resample('30T').asfreq()
-    # 価格データのみ前値補完
-    df['Close'] = df['Close'].ffill()
     return df
 
 df = get_data()
-
-if df.empty:
-    st.error("データが取得できませんでした。時間をおいて再試行してください。")
-    st.stop()
-
-last_updated = df.index[-1]
+current = df['Close'].iloc[-1].item()
 current_max = df['Close'].max().item()
 
 if current_max > st.session_state.p50_fixed:
     st.session_state.p50_fixed = current_max
 
 p50 = st.session_state.p50_fixed
-# 標準偏差期間: 30分足なので 1150本 (575*2)
-std = df['Close'].rolling(window=1150, min_periods=10).std().iloc[-1].item()
-current = df['Close'].iloc[-1].item()
+std = df['Close'].rolling(window=575).std().iloc[-1].item()
 
 price_levels = {
     "P50": p50,
-    "P48": p50 - (1 * std),
-    "P45": p50 - (2 * std),
-    "P40": p50 - (3 * std),
-    "P35": p50 - (4 * std)
+    "P48": p50 - std,
+    "P45": p50 - 2*std,
+    "P40": p50 - 3*std,
+    "P35": p50 - 4*std
 }
 
 # Dev計算
 if current >= price_levels["P48"]:
-    current_dev = 48 + (50 - 48) * (current - price_levels["P48"]) / (p50 - price_levels["P48"])
+    current_dev = 48 + 2 * (current - price_levels["P48"]) / (p50 - price_levels["P48"])
 elif current >= price_levels["P45"]:
-    current_dev = 45 + (48 - 45) * (current - price_levels["P45"]) / (price_levels["P48"] - price_levels["P45"])
+    current_dev = 45 + 3 * (current - price_levels["P45"]) / (price_levels["P48"] - price_levels["P45"])
 else:
-    current_dev = 40 + (45 - 40) * (current - price_levels["P40"]) / (price_levels["P45"] - price_levels["P40"])
+    current_dev = 40 + 5 * (current - price_levels["P40"]) / (price_levels["P45"] - price_levels["P40"])
 
 # グラフ描画
 fig, ax = plt.subplots(figsize=(16, 7))
-ax.plot(df.index, df['Close'], color='black', lw=1.5)
-
-# ライン描画
-colors = {'P50': 'red', 'P48': 'green', 'P45': 'blue', 'P40': 'brown', 'P35': 'gray'}
+ax.plot(range(len(df.tail(168))), df['Close'].tail(168), color='black', lw=1.5)
 for label, price in price_levels.items():
-    ax.axhline(price, color=colors[label], linestyle='--', alpha=0.6)
-
-# X軸の設定
-ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d\n%H:%M'))
-plt.xticks(rotation=0, fontsize=10)
-ax.grid(True, alpha=0.4)
-plt.subplots_adjust(left=0.08, right=0.98, top=0.95, bottom=0.2)
+    ax.axhline(price, color={'P50':'red','P48':'green','P45':'blue','P40':'brown','P35':'gray'}[label], linestyle='--', alpha=0.6)
 
 st.pyplot(fig, use_container_width=True)
 
-# 指標表示
-st.caption(f"Data Last Updated: {last_updated.strftime('%Y-%m-%d %H:%M')} JST")
-st.markdown("---")
+# 凡例表示
 cols = st.columns(7)
 cols[0].metric("Current", f"{current:.0f}")
 cols[1].metric("Dev", f"{current_dev:.1f}")
