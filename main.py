@@ -4,27 +4,41 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 st.set_page_config(layout="wide")
-st.title("NIY=F Strategic 3-Level Chart")
+st.title("NIY=F Strategic 3-Level Chart (Real-time Enhanced)")
 
+# P50を保存する初期化
 if 'p50_fixed' not in st.session_state:
     st.session_state.p50_fixed = 0.0
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def get_data():
-    df = yf.download("NIY=F", period="1y", interval="1h").dropna()
+    ticker = yf.Ticker("NIY=F")
+    # 1時間足の履歴を取得
+    df = ticker.history(period="7d", interval="1h")
+    
+    # リアルタイム価格を取得して最新行を上書き
+    # fast_infoは最新値へのアクセスを高速に行います
+    try:
+        latest_price = ticker.fast_info['last_price']
+        df.iloc[-1, df.columns.get_loc('Close')] = latest_price
+    except:
+        pass # 取得失敗時はそのままの終値を使用
+        
     df.index = df.index.tz_convert('Asia/Tokyo')
     return df
 
+# データ取得と処理
 df = get_data()
 last_updated = df.index[-1]
 current = df['Close'].iloc[-1].item()
 current_max = df['Close'].max().item()
 
+# 新高値更新ロジック
 if current_max > st.session_state.p50_fixed:
     st.session_state.p50_fixed = current_max
 
 p50 = st.session_state.p50_fixed
-std = df['Close'].rolling(window=575).std().iloc[-1].item()
+std = df['Close'].rolling(window=575, min_periods=10).std().iloc[-1].item()
 
 price_levels = {
     "P50": p50,
@@ -51,15 +65,13 @@ ax.plot(range(len(tail_df)), tail_df['Close'], color='black', lw=1.5)
 for label, price in price_levels.items():
     ax.axhline(price, color={'P50':'red','P48':'green','P45':'blue','P40':'brown','P35':'gray'}[label], linestyle='--', alpha=0.6)
 
-# ★最新時刻の縦破線を追加（インデックスの末尾）
-ax.axvline(x=len(tail_df)-1, color='orange', linestyle=':', lw=2, label='Last Data')
+# 最新時刻の縦破線（右端）
+ax.axvline(x=len(tail_df)-1, color='orange', linestyle=':', lw=2)
 
 st.pyplot(fig, use_container_width=True)
 
-# タイムスタンプ表示
+# タイムスタンプと指標
 st.write(f"Data Last Updated: {last_updated.strftime('%Y-%m-%d %H:%M')} JST")
-
-# 凡例表示
 cols = st.columns(7)
 cols[0].metric("Current", f"{current:.0f}")
 cols[1].metric("Dev", f"{current_dev:.1f}")
