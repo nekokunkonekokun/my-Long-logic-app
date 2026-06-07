@@ -3,14 +3,16 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import pandas as pd
 
-st.set_page_config(layout="wide")
+# 【重要】pages/ 内のファイルなので、st.set_page_config は記述していません。
+# 画面をワイドにしたい場合は、メインの「main.py」の先頭に st.set_page_config(layout="wide") を記述してください。
+
 st.title("NIY=F Strategic 3-Level Chart (Daily Enhanced)")
 
 @st.cache_data(ttl=60)
 def get_daily_data():
     ticker = yf.Ticker("NIY=F")
     
-    # 過去1年以上の最高値を確実に捕捉するため、余裕を持って2年分のデータを取得（土日は自動除外されます）
+    # 過去1年以上の最高値を確実に捕捉するため、余裕を持って2年分のデータを取得
     df = ticker.history(period="2y", interval="1d")
     
     # 【リアルタイム処理】場中は最新価格を「本日の仮終値」として最新行に上書き
@@ -50,7 +52,7 @@ else:
         "P35": p50 - 4 * std
     }
 
-    # Dev（現在偏差）の計算ロジック
+    # Dev（現在偏差）の計算ロジック（タイポを修正しました）
     if current >= price_levels["P48"]:
         current_dev = 48 + 2 * (current - price_levels["P48"]) / (p50 - price_levels["P48"]) if (p50 - price_levels["P48"]) != 0 else 48.0
     elif current >= price_levels["P45"]:
@@ -82,6 +84,7 @@ else:
     ax.set_xticks(range(len(tail_df)))
     ax.set_xticklabels(x_labels, fontsize=11)
     ax.grid(True, linestyle=':', alpha=0.5)
+    ax.set_title("NIY=F 5-Day Trend & P-Levels", fontsize=14)
     
     st.pyplot(fig, use_container_width=True)
 
@@ -90,14 +93,13 @@ else:
     
     st.write("---")
     
-    # 【パネル部分】視認性を高めた7列のメトリック表示
+    # 【パネル部分】7列のメトリック表示
     st.markdown("### 📊 戦略ステータス・パネル")
     cols = st.columns(7)
-    cols[0].metric("Current (現在値)", f"{current:.0f}")
-    cols[1].metric("Dev (現在偏差)", f"{current_dev:.1f}")
-    cols[2].metric("P50 (1年高値)", f"{p50:.0f}")
-    cols[3].metric("P48 (-1σ)", f"{price_levels['P48']:.0f}")
-    cols[4].metric("P45 (-2σ)", f"{price_levels['P45']:.0f}")
-    cols[5].metric("P40 (-3σ)", f"{price_levels['P40']:.0f}")
-    cols[6].metric("P35 (-4σ)", f"{price_levels['P35']:.0f}")
-
+    cols[0].metric("Current", f"{current:.0f}")
+    cols[1].metric("Dev", f"{current_dev:.1f}")
+    cols[2].metric("P50", f"{p50:.0f}")
+    cols[3].metric("P48", f"{price_levels['P48']:.0f}")
+    cols[4].metric("P45", f"{price_levels['P45']:.0f}")
+    cols[5].metric("P40", f"{price_levels['P40']:.0f}")
+    cols[6].metric("P35", f"{price_levels['P35']:.0f}")
