@@ -3,7 +3,6 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# 【解決策】他のページと同じ作法で先頭に設定を記述します
 st.set_page_config(layout="wide")
 st.title("NIY=F Strategic 3-Level Chart (Daily Enhanced)")
 
@@ -11,14 +10,15 @@ st.title("NIY=F Strategic 3-Level Chart (Daily Enhanced)")
 def get_daily_data():
     ticker = yf.Ticker("NIY=F")
     
-    # 過去1年以上の最高値を確実に捕捉するため、2年分のデータを取得
+    # 過去1年以上の最高値を捕捉するため、2年分のデータを取得
     df = ticker.history(period="2y", interval="1d")
     
-    # 【リアルタイム処理】場中は最新価格を「本日の仮終値」として最新行に上書き
+    # 【リアルタイム仮終値反映】
+    # 場中は最新価格を取得し、データフレームの「一番最後の行（今日）」の終値に即座に上書きする
     try:
         latest_price = ticker.fast_info['last_price']
-        if not df.empty:
-            df.iloc[-1, df.columns.get_loc('Close')] = latest_price
+        if not df.empty and latest_price is not None:
+            df.iloc[-1, df.columns.get_loc('Close')] = float(latest_price)
     except Exception:
         pass  # 取得失敗時はそのままの確定終値を使用
         
@@ -35,7 +35,10 @@ else:
     last_updated = df.index[-1]
     current = df['Close'].iloc[-1].item()
 
-    # 【味噌】P50: 過去1年間（約252営業日）の終値ベースの最高値
+    # 【味噌・完全改修】
+    # 最新価格が上書きされたデータフレームの「直近252営業日（約1年）」の中から最大値を探す。
+    # これにより、現在値（current）が過去の最高値を1円でも超えた瞬間、
+    # この p50 自体が自動的に「今の現在値」に書き換わります（天井のリアルタイム自己更新）。
     window_1year = min(252, len(df))
     p50 = df['Close'].iloc[-window_1year:].max().item()
 
@@ -52,14 +55,21 @@ else:
     }
 
     # Dev（現在偏差）の計算ロジック
+    # 現在値がP50をぶち抜いて「current == p50」の状態になると、
+    # 以下の数式により current_dev は自動的に「正確に 50.0 」にロックされます。
+    # P50以上は絶対に存在しないため、これ以上の条件分岐は不要になります。
     if current >= price_levels["P48"]:
-        current_dev = 48 + 2 * (current - price_levels["P48"]) / (p50 - price_levels["P48"]) if (p50 - price_levels["P48"]) != 0 else 48.0
+        div = p50 - price_levels["P48"]
+        current_dev = 48 + 2 * (current - price_levels["P48"]) / div if div != 0 else 50.0
     elif current >= price_levels["P45"]:
-        current_dev = 45 + 3 * (current - price_levels["P45"]) / (price_levels["P48"] - price_levels["P45"]) if (price_levels["P48"] - price_levels["P45"]) != 0 else 45.0
+        div = price_levels["P48"] - price_levels["P45"]
+        current_dev = 45 + 3 * (current - price_levels["P45"]) / div if div != 0 else 45.0
     elif current >= price_levels["P40"]:
-        current_dev = 40 + 5 * (current - price_levels["P40"]) / (price_levels["P45"] - price_levels["P40"]) if (price_levels["P45"] - price_levels["P40"]) != 0 else 40.0
+        div = price_levels["P45"] - price_levels["P40"]
+        current_dev = 40 + 5 * (current - price_levels["P40"]) / div if div != 0 else 40.0
     else:
-        current_dev = 35 + 5 * (current - price_levels["P35"]) / (price_levels["P40"] - price_levels["P35"]) if (price_levels["P40"] - price_levels["P35"]) != 0 else 35.0
+        div = price_levels["P40"] - price_levels["P35"]
+        current_dev = 35 + 5 * (current - price_levels["P35"]) / div if div != 0 else 35.0
 
     # グラフ描画（画面に出すのは直近5日分）
     fig, ax = plt.subplots(figsize=(16, 6))
@@ -92,7 +102,7 @@ else:
     
     st.write("---")
     
-    # 【パネル部分】ご要望の横並び7列のメトリック表示
+    # 【パネル部分】7列のメトリック表示
     st.markdown("### 📊 戦略ステータス・パネル")
     cols = st.columns(7)
     cols[0].metric("Current", f"{current:.0f}")
@@ -102,4 +112,3 @@ else:
     cols[4].metric("P45", f"{price_levels['P45']:.0f}")
     cols[5].metric("P40", f"{price_levels['P40']:.0f}")
     cols[6].metric("P35", f"{price_levels['P35']:.0f}")
-  
