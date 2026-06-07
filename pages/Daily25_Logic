@@ -3,16 +3,15 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# 【重要】pages/ 内のファイルなので、st.set_page_config は記述していません。
-# 画面をワイドにしたい場合は、メインの「main.py」の先頭に st.set_page_config(layout="wide") を記述してください。
-
+# 【解決策】他のページと同じ作法で先頭に設定を記述します
+st.set_page_config(layout="wide")
 st.title("NIY=F Strategic 3-Level Chart (Daily Enhanced)")
 
 @st.cache_data(ttl=60)
 def get_daily_data():
     ticker = yf.Ticker("NIY=F")
     
-    # 過去1年以上の最高値を確実に捕捉するため、余裕を持って2年分のデータを取得
+    # 過去1年以上の最高値を確実に捕捉するため、2年分のデータを取得
     df = ticker.history(period="2y", interval="1d")
     
     # 【リアルタイム処理】場中は最新価格を「本日の仮終値」として最新行に上書き
@@ -52,7 +51,7 @@ else:
         "P35": p50 - 4 * std
     }
 
-    # Dev（現在偏差）の計算ロジック（タイポを修正しました）
+    # Dev（現在偏差）の計算ロジック
     if current >= price_levels["P48"]:
         current_dev = 48 + 2 * (current - price_levels["P48"]) / (p50 - price_levels["P48"]) if (p50 - price_levels["P48"]) != 0 else 48.0
     elif current >= price_levels["P45"]:
@@ -93,7 +92,7 @@ else:
     
     st.write("---")
     
-    # 【パネル部分】7列のメトリック表示
+    # 【パネル部分】ご要望の横並び7列のメトリック表示
     st.markdown("### 📊 戦略ステータス・パネル")
     cols = st.columns(7)
     cols[0].metric("Current", f"{current:.0f}")
