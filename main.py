@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 st.set_page_config(layout="wide")
-st.title("NIY=F Strategic 3-Level Chart (Real-time Enhanced)")
+st.title("NIY=F 30minutes×575bars-Chart")
 
 # P50を保存する初期化
 if 'p50_fixed' not in st.session_state:
