@@ -5,7 +5,7 @@ import matplotlib.ticker as ticker
 from datetime import timedelta
 
 st.set_page_config(layout="wide")
-st.title("NIY=F Strategic 3-Level Chart")
+st.title("NIY=F 1hour×575 Chart")
 
 # P50の最高値を記憶するセッションステート
 if 'p50_fixed' not in st.session_state:
