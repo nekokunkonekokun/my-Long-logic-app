@@ -95,7 +95,7 @@ else:
             ax1.fill_between(display_dates, display_ma - i*display_std, display_ma + i*display_std, 
                              color='blue', alpha=0.12 - (i * 0.03))
             
-        ax1.plot(display_dates, display_data, color='black', marker='o', label='Actual Price')
+        ax1.plot(display_dates, display_data, color='black', marker='o', label='Actual Price({latest_val:,.2f}円)')
         ax1.plot(display_dates, display_ma, color='blue', linewidth=2, label='25MA')
         ax1.grid(True)
         ax1.legend(loc='upper left')
