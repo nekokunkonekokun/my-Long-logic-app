@@ -8,12 +8,11 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="ボリンジャーバンド未来予測", layout="wide")
 
 st.title("🔍 ボリンジャーバンド未来予測・タイムワープ")
-st.caption("スライダーを動かして過去の流れを追いながら、予測バンドをヒントに『勘』で次の展開を読み切るツール")
 
 # --- 1. バックテスト用データの事前取得（キャッシュ化して高速化） ---
 @st.cache_data(ttl=3600)  # 1時間キャッシュを保持
 def load_data():
-    # 過去100営業日前＋ボリンジャーバンド計算（25日分）＋マージンを考慮し、余裕を持って2年分取得
+    # 過去100営業日前＋ボリンジャーバンド計算（25日分）を考慮し、余裕を持って2年分取得
     df = yf.download("^N225", period="2y")
     
     # yfinanceの階層構造（MultiIndex）対策
@@ -31,16 +30,15 @@ except Exception as e:
     st.error(f"データの取得に失敗しました: {e}")
     st.stop()
 
-# --- 2. サイドバー / コントロールUI ---
-st.sidebar.header("⏳ タイムワープ設定")
+# --- 2. メイン画面へのインライン・スライダー配置 ---
+st.markdown("### 📅 バックテスト・タイムワープ・スライダー")
 
-# 過去100営業日をスライダーで選択（1日前〜100日前）
-# 1が最も直近（最新営業日）になります
-過去へのタイムワープ_日数 = st.sidebar.slider(
-    "過去何営業日前に遡るか", 
-    min_value=1, 
+# st.sidebar を外して直接 st.slider を使うことでメイン画面に表示（0＝直近最新）
+過去へのタイムワープ_日数 = st.slider(
+    "過去何営業日前に遡るか (0 = 最新リアルタイム時点)", 
+    min_value=0, 
     max_value=100, 
-    value=1, 
+    value=0, 
     step=1
 )
 
@@ -82,7 +80,7 @@ else:
     prev_date_str = global_dates[target_idx - 1].strftime('%Y-%m-%d')
     base_date_str = global_dates[target_idx].strftime('%Y-%m-%d')
 
-    # --- 5. メイン画面の情報表示 ---
+    # --- 5. メイン画面の情報表示（スライダーのすぐ下） ---
     col1, col2 = st.columns(2)
     with col1:
         st.metric(label=f"基準日 ({base_date_str}) の株価", value=f"{global_data[target_idx]:,.1f} 円")
@@ -90,8 +88,8 @@ else:
         change_val = global_data[target_idx] - global_data[target_idx - 1]
         st.metric(label=f"前日 ({prev_date_str}) からの変化", value=f"{change_val:,.1f} 円", delta=f"{change_val:,.1f} 円")
 
-    # --- 6. プロット（Matplotlibによる極限まで削ぎ落とした描画） ---
-    fig, ax = plt.subplots(figsize=(12, 6))
+    # --- 6. プロット（Matplotlibによる視認性特化のグラフ描写） ---
+    fig, ax = plt.subplots(figsize=(12, 5.5))
 
     # Y軸の範囲を、表示するデータ（±3σの範囲）に合わせて自動で最適化して画面切れを防止
     y_max = np.max(ma_extended + 3 * std_extended)
@@ -116,12 +114,11 @@ else:
 
     # 現在地（今日）を強調する垂直線
     ax.axvline(x=0, color='gray', linestyle=':', alpha=0.7)
-    ax.text(0.1, y_min, 'Base Date (Today)', color='gray', fontsize=10)
 
     # グラフの各種装飾
-    ax.set_title(f"Nikkei225 Future Band Browser\n[ Base Date: {base_date_str} ]", fontsize=14, pad=15)
-    ax.set_xlabel("Days (-1 = Prev Day, 0 = Base Date, 1~5 = Future Concept)", fontsize=11)
-    ax.set_ylabel("Price (Yen)", fontsize=11)
+    ax.set_title(f"Nikkei225 Future Band Browser (Base: {base_date_str})", fontsize=13, pad=10)
+    ax.set_xlabel("Days (-1 = Prev Day, 0 = Base Date, 1~5 = Future Concept)", fontsize=10)
+    ax.set_ylabel("Price (Yen)", fontsize=10)
     ax.set_xticks(x)
     ax.set_xticklabels(['Prev', 'Today', '+1d', '+2d', '+3d', '+4d', '+5d'])
     ax.legend(loc='upper left')
