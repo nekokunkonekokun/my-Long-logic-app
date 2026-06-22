@@ -79,7 +79,7 @@ else:
     col1, col2 = st.columns(2)
 
     # ==========================================
-    # 📸 左画面：1枚目のグラフ（確定データ固定）
+    # 📸 左画面：1枚目のグラフ（色をピンク系に統一・凡例を整数化）
     # ==========================================
     with col1:
         st.subheader(f"1. 基準日チャート [ 基準日: {base_date_str} ]")
@@ -91,22 +91,22 @@ else:
         display_ma = ma25_series[plot_start:target_idx + 1]
         display_std = std25_series[plot_start:target_idx + 1]
         
+        # 【色統一】2枚目に合わせてピンク（赤）系のグラデーションに変更
         for i in range(1, 4):
             ax1.fill_between(display_dates, display_ma - i*display_std, display_ma + i*display_std, 
-                             color='blue', alpha=0.12 - (i * 0.03))
+                             color='red', alpha=0.12 - (i * 0.03))
             
-        # 凡例のラベル部分に、最新の数値を埋め込みました
+        # 凡例に最新価格（整数）を表示
         latest_val = display_data[-1]
-        ax1.plot(display_dates, display_data, color='black', marker='o', label=f'Actual Price ({latest_val:,.2f}円)')
+        ax1.plot(display_dates, display_data, color='black', marker='o', label=f'Actual Price ({latest_val:,.0f}円)')
         ax1.plot(display_dates, display_ma, color='blue', linewidth=2, label='25MA')
         ax1.grid(True)
         ax1.legend(loc='upper left')
         plt.xticks(rotation=15)
         st.pyplot(fig1)
 
-
     # ==========================================
-    # 🔮 右画面：2枚目のグラフ（未来予測）
+    # 🔮 右画面：2枚目のグラフ（縦線追加・凡例に価格表示）
     # ==========================================
     ma_1d = current_ma + drift * 1
     ma_5d = current_ma + drift * 5
@@ -122,17 +122,21 @@ else:
             ax2.fill_between(future_days, future_ma_points - i*current_std, future_ma_points + i*current_std, 
                              color='red', alpha=0.12 - (i * 0.03))
             
-        ax2.plot(future_days, future_ma_points, color='blue', linestyle='--', marker='s', label='Predicted 25MA')
-        ax2.plot(0, global_data[target_idx], color='black', marker='o', markersize=10, label='Current Price')
+        # 凡例に5日後の予測25MA（整数）と、現在の価格（整数）を表示
+        current_val = global_data[target_idx]
+        ax2.plot(future_days, future_ma_points, color='blue', linestyle='--', marker='s', label=f'Predicted 25MA ({ma_5d:,.0f}円)')
+        ax2.plot(0, current_val, color='black', marker='o', markersize=10, label=f'Current Price ({current_val:,.0f}円)')
         
-        ax2.set_xticks([0, 1, 5])
-        ax2.set_xticklabels(['Today (0)', '1 Day After', '5 Days After'])
-        ax2.grid(True)
+        # 【縦線追加】横軸を0〜5日目まで1日刻みにして薄い補助線をしっかり出す
+        ax2.set_xticks([0, 1, 2, 3, 4, 5])
+        ax2.set_xticklabels(['Today (0)', '1 Day', '2 Days', '3 Days', '4 Days', '5 Days After'])
+        ax2.grid(True, which='both', linestyle='--', alpha=0.7)  # 点線でしっかり目立たせる
+        
         ax2.legend(loc='upper left')
         st.pyplot(fig2)
 
     # ==========================================
-    # 📋 最下部：予測価格帯ボード（シンプル表）
+    # 📋 最下部：予測価格帯ボード（シンプル表・整数化）
     # ==========================================
     st.markdown("---")
     st.subheader(f"📊 【最新予測価格帯ボード】 基準日: {base_date_str}")
@@ -152,6 +156,5 @@ else:
     }
     df_prediction = pd.DataFrame(prediction_data).set_index("項目")
     
-    # Streamlitの機能で、あの変な検索箱を出さずにスッキリと綺麗な表を全画面幅で表示
-    st.dataframe(df_prediction.style.format("{:,.2f}"), use_container_width=True)
-    
+    # 【表も整数化】すべての数値をカンマ区切りの整数表記にして出力
+    st.dataframe(df_prediction.style.format("{:,.0f}"), use_container_width=True)
