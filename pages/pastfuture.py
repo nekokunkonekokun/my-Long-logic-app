@@ -126,16 +126,43 @@ else:
     # Streamlit上にグラフを描写
     st.pyplot(fig)
 
-    # --- 7. 数値補足（バンドの正確な枠を文字でも把握） ---
+    # -- 7. 数値補足（スマホ視認性特化：縦型グラデーション配置） ---
     st.markdown("---")
     st.subheader("📊 5日後の予測境界値（目安）")
     
     final_ma = future_ma[-1]
     
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown(f"**+3σ（上限目安）**<br><span style='color:#ff4b4b;font-size:20px;font-weight:bold;'>{final_ma + 3*std_val:,.1f} 円</span>", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"**予測25MA（中心）**<br><span style='color:#1f77b4;font-size:20px;font-weight:bold;'>{final_ma:,.1f} 円</span>", unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"**-3σ（下限目安）**<br><span style='color:#24a148;font-size:20px;font-weight:bold;'>{final_ma - 3*std_val:,.1f} 円</span>", unsafe_allow_html=True)
+    # スマホ用に1列（縦並び）で、上（高価格）から下（低価格）へ配置
+    st.markdown(
+        f"""
+        <div style="padding: 10px; border-radius: 5px; background-color: rgba(255,75,75,0.1); margin-bottom: 10px;">
+            <span style="font-size:12px; color:gray;">【上限警戒】</span><br>
+            <strong style="color:#ff4b4b; font-size:18px;">＋3σ : {final_ma + 3*std_val:,.1f} 円</strong>
+        </div>
+        <div style="padding: 10px; border-radius: 5px; background-color: rgba(255,127,14,0.1); margin-bottom: 10px;">
+            <span style="font-size:12px; color:gray;">【上昇目安】</span><br>
+            <strong style="color:#ff7f0e; font-size:18px;">＋2σ : {final_ma + 2*std_val:,.1f} 円</strong>
+        </div>
+        <div style="padding: 10px; border-radius: 5px; background-color: rgba(255,165,0,0.1); margin-bottom: 10px;">
+            <span style="font-size:12px; color:gray;">【巡航上昇】</span><br>
+            <strong style="color:#ffa500; font-size:18px;">＋1σ : {final_ma + std_val:,.1f} 円</strong>
+        </div>
+        <div style="padding: 10px; border-radius: 5px; background-color: rgba(31,119,180,0.1); margin-bottom: 10px;">
+            <span style="font-size:12px; color:gray;">【中心線】</span><br>
+            <strong style="color:#1f77b4; font-size:18px;">予測25MA : {final_ma:,.1f} 円</strong>
+        </div>
+        <div style="padding: 10px; border-radius: 5px; background-color: rgba(40,167,69,0.1); margin-bottom: 10px;">
+            <span style="font-size:12px; color:gray;">| 巡航下落 |</span><br>
+            <strong style="color:#28a745; font-size:18px;">－1σ : {final_ma - std_val:,.1f} 円</strong>
+        </div>
+        <div style="padding: 10px; border-radius: 5px; background-color: rgba(40,167,69,0.15); margin-bottom: 10px;">
+            <span style="font-size:12px; color:gray;">【下落目安】</span><br>
+            <strong style="color:#218838; font-size:18px;">－2σ : {final_ma - 2*std_val:,.1f} 円</strong>
+        </div>
+        <div style="padding: 10px; border-radius: 5px; background-color: rgba(36,161,72,0.2); margin-bottom: 10px;">
+            <span style="font-size:12px; color:gray;">【下限警戒】</span><br>
+            <strong style="color:#1e7e34; font-size:18px;">－3σ : {final_ma - 3*std_val:,.1f} 円</strong>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
