@@ -24,6 +24,11 @@ def load_data():
     close_series = close_series.dropna()
     return close_series.index, close_series.values
 
+if st.button('最新データを取得'):
+    with st.spinner('データを更新しています...'):
+        st.cache_data.clear()
+        st.rerun()
+
 try:
     global_dates, global_data = load_data()
 except Exception as e:
