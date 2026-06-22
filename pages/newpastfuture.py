@@ -98,7 +98,7 @@ else:
             
         # 凡例に最新価格（整数）を表示
         latest_val = display_data[-1]
-        ax1.plot(display_dates, display_data, color='black', marker='o', label=f'Actual Price ({latest_val:,.0f}円)')
+        ax1.plot(display_dates, display_data, color='black', marker='o', label=f'Actual Price ({latest_val:,.0f})')
         ax1.plot(display_dates, display_ma, color='blue', linewidth=2, label='25MA')
         ax1.grid(True)
         ax1.legend(loc='upper left')
@@ -124,8 +124,8 @@ else:
             
         # 凡例に5日後の予測25MA（整数）と、現在の価格（整数）を表示
         current_val = global_data[target_idx]
-        ax2.plot(future_days, future_ma_points, color='blue', linestyle='--', marker='s', label=f'Predicted 25MA ({ma_5d:,.0f}円)')
-        ax2.plot(0, current_val, color='black', marker='o', markersize=10, label=f'Current Price ({current_val:,.0f}円)')
+        ax2.plot(future_days, future_ma_points, color='blue', linestyle='--', marker='s', label=f'Predicted 25MA ({ma_5d:,.0f})')
+        ax2.plot(0, current_val, color='black', marker='o', markersize=10, label=f'Current Price ({current_val:,.0f})')
         
         # 【縦線追加】横軸を0〜5日目まで1日刻みにして薄い補助線をしっかり出す
         ax2.set_xticks([0, 1, 2, 3, 4, 5])
