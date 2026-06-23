@@ -58,7 +58,7 @@ else:
     p50 = df['Close'].iloc[-actual_window_1y:].max().item()
 
     # 6. 標準偏差(std)の算出
-    std = df['Close'].rolling(window=window_std, min_periods=5).iloc[-1].std()
+    std = df['Close'].rolling(window=window_std, min_periods=5).std().iloc[-1].item()
 
     # 7. 新・Pレベルの定義（等間隔4刻み・価格はすべて整数）
     # 小数点以下を切り捨てて整数型(int)にキャスト
