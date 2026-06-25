@@ -106,7 +106,7 @@ cols_rt[6].metric("P35", f"{price_levels_rt['P35']:.0f}")
 
 
 # ==============================================================================
-# 4. 【下段】過去検証・エリア（新設：パターンA完全連動スライダー＆入力ボックス）
+# 4. 【下段】過去検証・エリア（新設：入力ボックス主体の完全ドミノ連動システム）
 # ==============================================================================
 st.markdown("---")
 st.header("🔍 2. バックテスト・タイムワープシミュレーター")
@@ -117,48 +117,46 @@ max_backtrack = len(df_all) - 169
 if max_backtrack < 10:
     st.warning("⚠️ 過去データが十分に蓄積されていません。しばらくお待ちください。")
 else:
-    # --- 🔄 【完全連動・ガチの双方向同期ロジック】 ---
-    
-    # 1. セッション状態の初期化
+    # ─── 🔄 セッション状態を用いた完全同期の仕組み ───
     if "back_bars" not in st.session_state:
         st.session_state.back_bars = 0
 
-    # 2. コールバック関数（入力ボックスが動いたらスライダーを合わせる）
-    def update_slider():
-        st.session_state.back_bars = st.session_state.num_input
+    # コールバック関数：入力ボックス（□）が書き換わったらセッション値を即更新
+    def sync_from_box():
+        st.session_state.back_bars = st.session_state.num_input_key
 
-    # 3. コールバック関数（スライダーが動いたら入力ボックスを合わせる）
-    def update_num_input():
-        st.session_state.back_bars = st.session_state.slider_input
+    # コールバック関数：スライダーが動いたらセッション値を即更新
+    def sync_from_slider():
+        st.session_state.back_bars = st.session_state.slider_input_key
 
-    # 4. 【新設】数値入力ボックス（□）
-    input_bars = st.number_input(
-        label="⌨️ 遡る時間を数字で直接入力 (□ に数字を入れて確定)",
+    # ① 数値入力ボックス（□）を配置
+    st.number_input(
+        label="⌨️ 遡る時間を数字で直接入力 (□ に数字を入れて確定/改行)",
         min_value=0,
         max_value=int(max_backtrack),
         value=st.session_state.back_bars,
         step=1,
-        key="num_input",
-        on_change=update_slider  # 値が変わったらスライダー側に同期
+        key="num_input_key",
+        on_change=sync_from_box
     )
 
-    # 5. Webスライダー
-    back_bars_slider = st.slider(
+    # ② スライダーを配置
+    st.slider(
         label="⏰ 過去へタイムワープ（スライダーでも微調整できます）",
         min_value=0,
         max_value=int(max_backtrack),
         value=st.session_state.back_bars,
         step=1,
-        key="slider_input",
-        on_change=update_num_input  # 値が変わったら入力ボックス側に同期
+        key="slider_input_key",
+        on_change=sync_from_slider
     )
     
-    # 最終的に計算で使う値をセッションから取得
+    # 最終的な確定数値を安全に引き出す
     back_bars = st.session_state.back_bars
 
-    # --- ⚙️ 【ここから下の計算ロジックは自動で連動します】 ---
+    # ─── ⚙️ ここから下の計算ロジック・グラフ・指標すべてが確定数値に連動 ───
 
-    # スライダーが指す「過去のターゲット位置」
+    # スライダー/入力ボックスが指す「過去のターゲット位置」
     target_idx = len(df_all) - back_bars
 
     # パターンA：ターゲット時点までのデータだけを切り出し（未来を遮断）
@@ -201,7 +199,7 @@ else:
     for label, price in price_levels_hist.items():
         ax_hist.axhline(price, color=colors_map[label], linestyle='--', alpha=0.6)
 
-    # 当時を指す右端の縦線（色をリアルタイムと変えて青系の点線に）
+    # 当時を指す右端の縦線
     ax_hist.axvline(x=len(df_view_hist)-1, color='#457b9d', linestyle=':', lw=2.5)
     ax_hist.grid(True, linestyle=':', alpha=0.5)
     ax_hist.set_title(f"Historical Window Snapshot [ Base Time: {hist_last_updated.strftime('%Y-%m-%d %H:%M')} JST ]", fontsize=12, fontweight='bold', color='#1d3557')
@@ -217,4 +215,3 @@ else:
     cols_hist[4].metric("P45 (Then)", f"{price_levels_hist['P45']:.0f}")
     cols_hist[5].metric("P40 (Then)", f"{price_levels_hist['P40']:.0f}")
     cols_hist[6].metric("P35 (Then)", f"{price_levels_hist['P35']:.0f}")
-
