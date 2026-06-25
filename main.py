@@ -117,47 +117,50 @@ max_backtrack = len(df_all) - 169
 if max_backtrack < 10:
     st.warning("⚠️ 過去データが十分に蓄積されていません。しばらくお待ちください。")
 else:
-    # --- 【ここから修正・連動ロジック】 ---
+    # --- 🔄 【完全連動・ガチの双方向同期ロジック】 ---
     
-    # 1. セッション状態を使って数値を管理（スマホでのカクつき・リセット防止）
-    if "back_bars_value" not in st.session_state:
-        st.session_state.back_bars_value = 0
+    # 1. セッション状態の初期化
+    if "back_bars" not in st.session_state:
+        st.session_state.back_bars = 0
 
-    # 2. 【新設】数値入力ボックス（□）
-    # ここに「18」と打つと、下のスライダーも連動して動きます
+    # 2. コールバック関数（入力ボックスが動いたらスライダーを合わせる）
+    def update_slider():
+        st.session_state.back_bars = st.session_state.num_input
+
+    # 3. コールバック関数（スライダーが動いたら入力ボックスを合わせる）
+    def update_num_input():
+        st.session_state.back_bars = st.session_state.slider_input
+
+    # 4. 【新設】数値入力ボックス（□）
     input_bars = st.number_input(
         label="⌨️ 遡る時間を数字で直接入力 (□ に数字を入れて確定)",
         min_value=0,
         max_value=int(max_backtrack),
-        value=st.session_state.back_bars_value,
+        value=st.session_state.back_bars,
         step=1,
-        key="num_input"
+        key="num_input",
+        on_change=update_slider  # 値が変わったらスライダー側に同期
     )
-    
-    # 入力ボックスの値が変わったらセッションに保存
-    st.session_state.back_bars_value = input_bars
 
-    # 3. Webスライダー（入力ボックスと完全に同期）
-    back_bars = st.slider(
+    # 5. Webスライダー
+    back_bars_slider = st.slider(
         label="⏰ 過去へタイムワープ（スライダーでも微調整できます）",
         min_value=0,
         max_value=int(max_backtrack),
-        value=st.session_state.back_bars_value,
+        value=st.session_state.back_bars,
         step=1,
-        key="slider_input"
+        key="slider_input",
+        on_change=update_num_input  # 値が変わったら入力ボックス側に同期
     )
     
-    # スライダーの値が変わったらセッションに保存
-    st.session_state.back_bars_value = back_bars
-    
-    # 後続の計算用に確定した値をセット
-    back_bars = st.session_state.back_bars_value
+    # 最終的に計算で使う値をセッションから取得
+    back_bars = st.session_state.back_bars
 
-    # --- 【ここまで修正】 ---
+    # --- ⚙️ 【ここから下の計算ロジックは自動で連動します】 ---
 
     # スライダーが指す「過去のターゲット位置」
     target_idx = len(df_all) - back_bars
-    
+
     # パターンA：ターゲット時点までのデータだけを切り出し（未来を遮断）
     df_history_up_to_target = df_all.iloc[:target_idx]
     
@@ -214,3 +217,4 @@ else:
     cols_hist[4].metric("P45 (Then)", f"{price_levels_hist['P45']:.0f}")
     cols_hist[5].metric("P40 (Then)", f"{price_levels_hist['P40']:.0f}")
     cols_hist[6].metric("P35 (Then)", f"{price_levels_hist['P35']:.0f}")
+
