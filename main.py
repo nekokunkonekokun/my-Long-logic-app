@@ -106,29 +106,58 @@ cols_rt[6].metric("P35", f"{price_levels_rt['P35']:.0f}")
 
 
 # ==============================================================================
-# 4. 【下段】過去検証・エリア（新設：パターンA完全連動スライダー）
+# 4. 【下段】過去検証・エリア（新設：パターンA完全連動スライダー＆入力ボックス）
 # ==============================================================================
 st.markdown("---")
 st.header("🔍 2. バックテスト・タイムワープシミュレーター")
 
-# 最大で何本前まで遡るか（データ全件数から168本を残した残量を上限に安全マージンを設定）
+# 最大で何本前まで遡るか
 max_backtrack = len(df_all) - 169
 
 if max_backtrack < 10:
     st.warning("⚠️ 過去データが十分に蓄積されていません。しばらくお待ちください。")
 else:
-    # タイムワープコントロール用のWebスライダー
-    back_bars = st.slider(
-        label="⏰ 過去へタイムワープ（何時間前に戻るか指定してください）",
+    # --- 【ここから修正・連動ロジック】 ---
+    
+    # 1. セッション状態を使って数値を管理（スマホでのカクつき・リセット防止）
+    if "back_bars_value" not in st.session_state:
+        st.session_state.back_bars_value = 0
+
+    # 2. 【新設】数値入力ボックス（□）
+    # ここに「18」と打つと、下のスライダーも連動して動きます
+    input_bars = st.number_input(
+        label="⌨️ 遡る時間を数字で直接入力 (□ に数字を入れて確定)",
         min_value=0,
         max_value=int(max_backtrack),
-        value=0,
-        step=1
+        value=st.session_state.back_bars_value,
+        step=1,
+        key="num_input"
     )
+    
+    # 入力ボックスの値が変わったらセッションに保存
+    st.session_state.back_bars_value = input_bars
+
+    # 3. Webスライダー（入力ボックスと完全に同期）
+    back_bars = st.slider(
+        label="⏰ 過去へタイムワープ（スライダーでも微調整できます）",
+        min_value=0,
+        max_value=int(max_backtrack),
+        value=st.session_state.back_bars_value,
+        step=1,
+        key="slider_input"
+    )
+    
+    # スライダーの値が変わったらセッションに保存
+    st.session_state.back_bars_value = back_bars
+    
+    # 後続の計算用に確定した値をセット
+    back_bars = st.session_state.back_bars_value
+
+    # --- 【ここまで修正】 ---
 
     # スライダーが指す「過去のターゲット位置」
     target_idx = len(df_all) - back_bars
-
+    
     # パターンA：ターゲット時点までのデータだけを切り出し（未来を遮断）
     df_history_up_to_target = df_all.iloc[:target_idx]
     
