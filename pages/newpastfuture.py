@@ -99,7 +99,7 @@ else:
         # 凡例に最新価格（整数）を表示
         latest_val = display_data[-1]
         ax1.plot(display_dates, display_data, color='black', marker='o', label=f'Actual Price ({latest_val:,.0f})')
-        ax1.plot(display_dates, display_ma, color='blue', linewidth=2, label='25MA')
+        ax1.plot(display_dates, display_ma, color='blue', linewidth=2, label='25MA ({current_ma:,.0f})')
         ax1.grid(True)
         ax1.legend(loc='upper left')
         plt.xticks(rotation=15)
