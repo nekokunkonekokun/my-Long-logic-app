@@ -4,26 +4,55 @@ import streamlit as st
 
 def show_endure_board(slider_lookback_days=0):
     """
-    タイムワープスライダーの値(slider_lookback_days)を引数として受け取り、
-    スマホ画面に最適化された「トホホ・生還確率ボード」を描画する関数
+    スマホ画面特化：最新1時間足の自動マージ ＆ 生還確率シミュレーター
     """
-    st.subheader("🛡️ 生還確率シミュレーター")
+    st.subheader("🛡️ トホホ・生還確率シミュレーター")
 
-    # 1. データ取得（Streamlitのキャッシュを利用）
-    @st.cache_data(ttl=3600)
-    def load_data():
+    # 1. 確定日足と最新1時間足の取得（キャッシュ化）
+    @st.cache_data(ttl=600)
+    def load_combined_data():
         ticker = yf.Ticker("^N225")
-        df = ticker.history(period="1y", interval="1d")
-        df.index = df.index.tz_convert('Asia/Tokyo')
-        return df
+        df_daily_raw = ticker.history(period="1y", interval="1d")
+        df_hourly_raw = ticker.history(period="1mo", interval="1h")
+        
+        df_daily_raw.index = df_daily_raw.index.tz_convert('Asia/Tokyo')
+        df_hourly_raw.index = df_hourly_raw.index.tz_convert('Asia/Tokyo')
+        
+        # 最新の1時間足データから「今日の仮データ」を生成
+        latest_hourly_idx = df_hourly_raw.index[-1]
+        today_date_str = latest_hourly_idx.strftime('%Y-%m-%d')
+        
+        # 既に確定日足に今日が含まれている場合は除外してクリーンに
+        if df_daily_raw.index[-1].strftime('%Y-%m-%d') == today_date_str:
+            df_base = df_daily_raw.iloc[:-1].copy()
+        else:
+            df_base = df_daily_raw.copy()
+            
+        # 今日1日の1時間足から高値・安値・終値を抽出して1行作る
+        today_hourly = df_hourly_raw[df_hourly_raw.index.strftime('%Y-%m-%d') == today_date_str]
+        
+        if not today_hourly.empty:
+            today_row = pd.DataFrame([{
+                'Open': today_hourly['Open'].iloc[0],
+                'High': today_hourly['High'].max(),
+                'Low': today_hourly['Low'].min(),
+                'Close': today_hourly['Close'].iloc[-1],
+                'Volume': today_hourly['Volume'].sum()
+            }], index=[latest_hourly_idx])
+            # 確定日足の末尾に「今日の最新足」を結合
+            df_final = pd.concat([df_base, today_row])
+        else:
+            df_final = df_base.copy()
+            
+        return df_final
 
     try:
-        df_daily = load_data()
+        df_daily = load_combined_data()
     except Exception as e:
         st.error("データの取得に失敗しました。")
         return
 
-    # 2. スライダーの位置に合わせて基準日（ターゲット）を決定
+    # 2. スライダーの位置に合わせて基準日を決定
     last_idx = len(df_daily) - 1
     target_idx = last_idx - slider_lookback_days
     
@@ -35,7 +64,7 @@ def show_endure_board(slider_lookback_days=0):
     def calculate_metrics(base_df, t_idx, p0_price):
         future_df = base_df.iloc[t_idx + 1:]
         if future_df.empty:
-            return "未生還(0日目)", 0, 0
+            return "追跡中", 0, 0
             
         max_reverse = 0
         recovery_days = None
@@ -43,11 +72,9 @@ def show_endure_board(slider_lookback_days=0):
         
         for idx, row in future_df.iterrows():
             elapsed_days += 1
-            # 最大逆行幅（ザラ場安値ベース）
             drawdown = p0_price - row['Low']
             if drawdown > max_reverse:
                 max_reverse = drawdown
-            # 生還判定（ザラ場高値ベース）
             if row['High'] >= p0_price and recovery_days is None:
                 recovery_days = elapsed_days
                 
@@ -71,14 +98,16 @@ def show_endure_board(slider_lookback_days=0):
         p1 = df_daily.iloc[idx - 1]['Close']
         p3 = df_daily.iloc[idx - 3]['Close']
         p10 = df_daily.iloc[idx - 10]['Close']
-        date_str = curr_row.name.strftime('%m/%d')
+        
+        # 最新の行（一番上）かつ slider_lookback_days=0 の場合は末尾に「*」を付与して速報値と識別
+        is_latest_row = (idx == last_idx)
+        date_str = curr_row.name.strftime('%m/%d') + ("*" if is_latest_row else "")
         
         status_str, max_reverse, micro_loss = calculate_metrics(df_daily, idx, p0)
         
         def get_mark(today, past):
             return "○" if today > past else ("●" if today < past else "△")
 
-        # 確率計算用の数値を抽出
         raw_days = None
         if "日で生還" in status_str:
             raw_days = int(status_str.split("日")[0])
@@ -99,7 +128,7 @@ def show_endure_board(slider_lookback_days=0):
 
     res_df = pd.DataFrame(results)
 
-    # 5. スマホ最適化テーブル
+    # 5. スマホ専用極小レスポンシブHTMLテーブル
     table_html = """
     <div style="overflow-x:auto; width:100%; -webkit-overflow-scrolling:touch;">
         <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:11px; text-align:center; color:#e0e0e0; background-color:#1e1e1e;">
@@ -119,8 +148,12 @@ def show_endure_board(slider_lookback_days=0):
     """
     
     for _, row in res_df.iterrows():
-        bg_style = "background-color:#3a2222;" if "未生還" in row['ステータス'] else ""
-        
+        bg_style = ""
+        if "未生還" in row['ステータス']:
+            bg_style = "background-color:#3a2222;"
+        elif "追跡中" in row['ステータス']:
+            bg_style = "background-color:#223a22;" # 最新の仮行は緑っぽく
+            
         table_html += f"<tr style='border-bottom:1px solid #333; {bg_style}'>"
         table_html += f"<td style='padding:6px 2px; font-weight:bold;'>{row['日付']}</td>"
         table_html += f"<td style='padding:6px 2px;'>{row['終値']}</td>"
@@ -134,7 +167,7 @@ def show_endure_board(slider_lookback_days=0):
         
     table_html += "</tbody></table></div>"
     
-    st.components.v1.html(table_html, height=320, scrolling=False)
+    st.components.v1.html(table_html, height=300, scrolling=False)
 
     # 6. タイムスパン別・生還確率推論
     valid_days = res_df["_raw_days"].dropna()
@@ -152,5 +185,10 @@ def show_endure_board(slider_lookback_days=0):
     else:
         st.text("生還確率：計算データ不足")
 
+# 🛠️ スマホのメイン画面にスライダーを直接出すためのランチャー処理
 if __name__ == "__main__":
-    show_endure_board(0)
+    st.title("🎛️ タイムワープコントロール")
+    # スマホで「ダブル」にならないよう、メインストリーム（縦配列）に配置
+    lookback = st.slider("⏰ 過去へタイムワープ（遡る日数）", min_value=0, max_value=100, value=0, step=1)
+    show_endure_board(slider_lookback_days=lookback)
+
