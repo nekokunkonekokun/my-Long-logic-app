@@ -4,7 +4,7 @@ import streamlit as st
 
 def show_endure_board(slider_lookback_days=0):
     """
-    スマホ画面特化：最新1時間足の自動マージ ＆ 生還確率シミュレーター (終値厳格＆生還時break版)
+    スマホ画面特化：最新1時間足の自動マージ ＆ 生還確率シミュレーター (終値厳格＆赤バツ完全対応版)
     """
     st.subheader("🛡️ トホホ・生還確率シミュレーター")
 
@@ -79,7 +79,7 @@ def show_endure_board(slider_lookback_days=0):
             # 終値ベースで判定し、生還したらそこで追跡を打ち切る
             if row['Close'] >= p0_price and recovery_days is None:
                 recovery_days = elapsed_days
-                break  # 🎯 勝利確定後の余計な暴落データをシャットアウト
+                break
                 
         if recovery_days is not None:
             status_str = f"{recovery_days}日で生還"
@@ -102,17 +102,14 @@ def show_endure_board(slider_lookback_days=0):
         p3 = df_daily.iloc[idx - 3]['Close']
         p10 = df_daily.iloc[idx - 10]['Close']
         
-        # 最新の行（一番上）かつ slider_lookback_days=0 の場合は末尾に「*」を付与して速報値と識別
         is_latest_row = (idx == last_idx)
         date_str = curr_row.name.strftime('%m/%d') + ("*" if is_latest_row else "")
         
         status_str, max_reverse, micro_loss = calculate_metrics(df_daily, idx, p0)
         
-        
-        # 🎯 修正後（バツ印に変えて直感的にするコード）
+        # 🎯 安全な全角「×」を採用
         def get_mark(today, past):
-        return "○" if today > past else ("❌" if today < past else "△")
-
+            return "○" if today > past else ("×" if today < past else "△")
 
         raw_days = None
         if "日で生還" in status_str:
@@ -134,7 +131,7 @@ def show_endure_board(slider_lookback_days=0):
 
     res_df = pd.DataFrame(results)
 
-    # 5. スマホ専用極小レスポンシブHTMLテーブル
+    # 5. スマホ専用極小レスポンシブHTMLテーブル（赤バツ自動装飾付き）
     table_html = """
     <div style="overflow-x:auto; width:100%; -webkit-overflow-scrolling:touch;">
         <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:11px; text-align:center; color:#e0e0e0; background-color:#1e1e1e;">
@@ -163,9 +160,16 @@ def show_endure_board(slider_lookback_days=0):
         table_html += f"<tr style='border-bottom:1px solid #333; {bg_style}'>"
         table_html += f"<td style='padding:6px 2px; font-weight:bold;'>{row['日付']}</td>"
         table_html += f"<td style='padding:6px 2px;'>{row['終値']}</td>"
-        table_html += f"<td style='padding:6px 1px;'>{row['1日']}</td>"
-        table_html += f"<td style='padding:6px 1px;'>{row['3日']}</td>"
-        table_html += f"<td style='padding:6px 1px;'>{row['10日']}</td>"
+        
+        # 🎯 「×」の時だけ赤文字にするインラインCSSの適用
+        m1_style = "color:#ff5555; font-weight:bold;" if row['1日'] == "×" else ""
+        m3_style = "color:#ff5555; font-weight:bold;" if row['3日'] == "×" else ""
+        m10_style = "color:#ff5555; font-weight:bold;" if row['10日'] == "×" else ""
+        
+        table_html += f"<td style='padding:6px 1px; {m1_style}'>{row['1日']}</td>"
+        table_html += f"<td style='padding:6px 1px; {m3_style}'>{row['3日']}</td>"
+        table_html += f"<td style='padding:6px 1px; {m10_style}'>{row['10日']}</td>"
+        
         table_html += f"<td style='padding:6px 2px;'>{row['最大逆行']}</td>"
         table_html += f"<td style='padding:6px 2px; color:#ff8787;'>{row['マイクロ1枚']}</td>"
         table_html += f"<td style='padding:6px 2px; font-weight:bold;'>{row['ステータス']}</td>"
@@ -191,7 +195,6 @@ def show_endure_board(slider_lookback_days=0):
     else:
         st.text("生還確率：計算データ不足")
 
-# 🛠️ スマホのメイン画面にスライダーを直接出すためのランチャー処理
 if __name__ == "__main__":
     st.title("🎛️ タイムワープコントロール")
     lookback = st.slider("⏰ 過去へタイムワープ（遡る日数）", min_value=0, max_value=100, value=0, step=1)
