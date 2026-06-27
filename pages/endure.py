@@ -108,8 +108,11 @@ def show_endure_board(slider_lookback_days=0):
         
         status_str, max_reverse, micro_loss = calculate_metrics(df_daily, idx, p0)
         
+        
+        # 🎯 修正後（バツ印に変えて直感的にするコード）
         def get_mark(today, past):
-            return "○" if today > past else ("●" if today < past else "△")
+        return "○" if today > past else ("❌" if today < past else "△")
+
 
         raw_days = None
         if "日で生還" in status_str:
