@@ -4,7 +4,7 @@ import streamlit as st
 
 def show_endure_board(slider_lookback_days=0):
     """
-    スマホ画面特化：最新1時間足の自動マージ ＆ 生還確率シミュレーター (終値厳格版)
+    スマホ画面特化：最新1時間足の自動マージ ＆ 生還確率シミュレーター (終値厳格＆生還時break版)
     """
     st.subheader("🛡️ トホホ・生還確率シミュレーター")
 
@@ -76,9 +76,10 @@ def show_endure_board(slider_lookback_days=0):
             if drawdown > max_reverse:
                 max_reverse = drawdown
             
-            # 🎯 【修正箇所】High から Close（終値）に変更してガチガチの安心材料にする
+            # 終値ベースで判定し、生還したらそこで追跡を打ち切る
             if row['Close'] >= p0_price and recovery_days is None:
                 recovery_days = elapsed_days
+                break  # 🎯 勝利確定後の余計な暴落データをシャットアウト
                 
         if recovery_days is not None:
             status_str = f"{recovery_days}日で生還"
@@ -154,7 +155,7 @@ def show_endure_board(slider_lookback_days=0):
         if "未生還" in row['ステータス']:
             bg_style = "background-color:#3a2222;"
         elif "追跡中" in row['ステータス']:
-            bg_style = "background-color:#223a22;" # 最新の仮行は緑っぽく
+            bg_style = "background-color:#223a22;"
             
         table_html += f"<tr style='border-bottom:1px solid #333; {bg_style}'>"
         table_html += f"<td style='padding:6px 2px; font-weight:bold;'>{row['日付']}</td>"
