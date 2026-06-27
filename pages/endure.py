@@ -4,7 +4,7 @@ import streamlit as st
 
 def show_endure_board(slider_lookback_days=0):
     """
-    スマホ画面特化：最新1時間足の自動マージ ＆ 生還確率シミュレーター
+    スマホ画面特化：最新1時間足の自動マージ ＆ 生還確率シミュレーター (終値厳格版)
     """
     st.subheader("🛡️ トホホ・生還確率シミュレーター")
 
@@ -75,7 +75,9 @@ def show_endure_board(slider_lookback_days=0):
             drawdown = p0_price - row['Low']
             if drawdown > max_reverse:
                 max_reverse = drawdown
-            if row['High'] >= p0_price and recovery_days is None:
+            
+            # 🎯 【修正箇所】High から Close（終値）に変更してガチガチの安心材料にする
+            if row['Close'] >= p0_price and recovery_days is None:
                 recovery_days = elapsed_days
                 
         if recovery_days is not None:
@@ -188,7 +190,5 @@ def show_endure_board(slider_lookback_days=0):
 # 🛠️ スマホのメイン画面にスライダーを直接出すためのランチャー処理
 if __name__ == "__main__":
     st.title("🎛️ タイムワープコントロール")
-    # スマホで「ダブル」にならないよう、メインストリーム（縦配列）に配置
     lookback = st.slider("⏰ 過去へタイムワープ（遡る日数）", min_value=0, max_value=100, value=0, step=1)
     show_endure_board(slider_lookback_days=lookback)
-
