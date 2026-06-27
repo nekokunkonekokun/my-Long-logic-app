@@ -7,14 +7,13 @@ def show_endure_board(slider_lookback_days=0):
     タイムワープスライダーの値(slider_lookback_days)を引数として受け取り、
     スマホ画面に最適化された「トホホ・生還確率ボード」を描画する関数
     """
-    st.subheader("🛡️ トホホ・生還確率シミュレーター")
+    st.subheader("🛡️ 生還確率シミュレーター")
 
-    # 1. データ取得（スマホの負荷軽減のためStreamlitのキャッシュを利用）
+    # 1. データ取得（Streamlitのキャッシュを利用）
     @st.cache_data(ttl=3600)
     def load_data():
         ticker = yf.Ticker("^N225")
         df = ticker.history(period="1y", interval="1d")
-        # タイムゾーンを日本時間に統一
         df.index = df.index.tz_convert('Asia/Tokyo')
         return df
 
@@ -44,11 +43,11 @@ def show_endure_board(slider_lookback_days=0):
         
         for idx, row in future_df.iterrows():
             elapsed_days += 1
-            # 最大逆行幅（ザラ場最安値ベース）
+            # 最大逆行幅（ザラ場安値ベース）
             drawdown = p0_price - row['Low']
             if drawdown > max_reverse:
                 max_reverse = drawdown
-            # 生還判定（ザラ場最高値ベース）
+            # 生還判定（ザラ場高値ベース）
             if row['High'] >= p0_price and recovery_days is None:
                 recovery_days = elapsed_days
                 
@@ -67,7 +66,7 @@ def show_endure_board(slider_lookback_days=0):
         if idx < 10:
             continue
             
-        curr_row = base_df = df_daily.iloc[idx]
+        curr_row = df_daily.iloc[idx]
         p0 = curr_row['Close']
         p1 = df_daily.iloc[idx - 1]['Close']
         p3 = df_daily.iloc[idx - 3]['Close']
@@ -79,6 +78,13 @@ def show_endure_board(slider_lookback_days=0):
         def get_mark(today, past):
             return "○" if today > past else ("●" if today < past else "△")
 
+        # 確率計算用の数値を抽出
+        raw_days = None
+        if "日で生還" in status_str:
+            raw_days = int(status_str.split("日")[0])
+        elif "未生還" in status_str:
+            raw_days = 999
+
         results.append({
             "日付": date_str,
             "終値": f"{int(p0):,}",
@@ -88,13 +94,12 @@ def show_endure_board(slider_lookback_days=0):
             "最大逆行": f"-{int(max_reverse):,}円" if max_reverse > 0 else "0円",
             "マイクロ1枚": f"{micro_loss:,}円" if micro_loss < 0 else "0円",
             "ステータス": status_str,
-            "_raw_days": recovery_days if recovery_days is not None else (999 if "未生還" in status_str else None)
+            "_raw_days": raw_days
         })
 
     res_df = pd.DataFrame(results)
 
-    # 5. スマホ最適化：極小サイズ＆レスポンシブなHTMLテーブルの生成
-    # 既存のStreamlitアプリのダークモード（黒背景）に溶け込む配色
+    # 5. スマホ最適化テーブル
     table_html = """
     <div style="overflow-x:auto; width:100%; -webkit-overflow-scrolling:touch;">
         <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:11px; text-align:center; color:#e0e0e0; background-color:#1e1e1e;">
@@ -114,7 +119,6 @@ def show_endure_board(slider_lookback_days=0):
     """
     
     for _, row in res_df.iterrows():
-        # 未生還（現在捕まり中）はスマホ画面でも一発でわかるように背景を警戒色に
         bg_style = "background-color:#3a2222;" if "未生還" in row['ステータス'] else ""
         
         table_html += f"<tr style='border-bottom:1px solid #333; {bg_style}'>"
@@ -130,10 +134,9 @@ def show_endure_board(slider_lookback_days=0):
         
     table_html += "</tbody></table></div>"
     
-    # メイン画面にテーブルをフラットに流し込み（横ブレ防止）
     st.components.v1.html(table_html, height=320, scrolling=False)
 
-    # 6. 【核心】タイムスパン別・生還確率推論（ st.info ですっきり配置 ）
+    # 6. タイムスパン別・生還確率推論
     valid_days = res_df["_raw_days"].dropna()
     total_valid = len(valid_days)
     
@@ -143,15 +146,11 @@ def show_endure_board(slider_lookback_days=0):
         p_14days = (valid_days <= 14).sum() / total_valid * 100
         
         st.markdown("### 🔮 タイムスパン別・生還確率推論")
-        st.info(f"⏳ **3日以内** に無事生還（数日での戻り）: **{p_3days:.1f}%**")
-        st.success(f"🔋 **7日以内** に粘って生還（1週間のノイズ）: **{p_7days:.1f}%**")
-        st.warning(f"🛡️ **14日以内** にじっくり生還（HFT過剰調整）: **{p_14days:.1f}%**")
+        st.info(f"⏳ **3日以内** に無事生還: **{p_3days:.1f}%**")
+        st.success(f"🔋 **7日以内** に粘って生還: **{p_7days:.1f}%**")
+        st.warning(f"🛡️ **14日以内** にじっくり生還: **{p_14days:.1f}%**")
     else:
         st.text("生還確率：計算データ不足")
 
-# テスト起動用（単体で動かす場合）
 if __name__ == "__main__":
-    st.title("Test App")
-    # 既存のタイムワープスライダーの値を模したテスト（0＝最新）
-    show_endure_board(slider_lookback_days=0)
-  
+    show_endure_board(0)
