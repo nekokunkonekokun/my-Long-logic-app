@@ -38,7 +38,7 @@ if run_btn:
         # 指定された期間でデータを取得（30分足）
         df = yf.download(ticker, start=start_dt, end=end_dt, interval="30m")
         
-        # 🚨 エラー対策：データが正常に取得できているか、十分な件数があるかをチェック
+        # エラー対策：データが正常に取得できているか、十分な件数があるかをチェック
         if df.empty or len(df) < 10:
             st.warning("⚠️ 指定した期間に十分なデータ数がありません。期間を広げるか、市場が開いている時間を選択してください。")
         else:
@@ -125,7 +125,6 @@ if run_btn:
             # ==========================================
             st.subheader("📊 需給インテリジェンス・レポート")
             
-            # 再度 df の安全性を担保した上で解析をスタート
             total_len = len(df)
             lookback_count = max(2, int(total_len * 0.20))
             recent_df = df.tail(lookback_count)
@@ -162,16 +161,14 @@ if run_btn:
                     if heavy_sell_age < 0.25: # 直近25%以内の新しい売り
                         is_fresh_short = True
             
-            # === 👇 ここからを新規挿入 👇 ===
-            # 【高値維持力の判定】直近5本の終値平均が、期間内最高値付近をキープできているか
+            # 【新規追加】高値維持力の判定（直近5本の終値平均が最高値付近にあるか）
             recent_5 = df.tail(5)
             is_maintaining_high = recent_5['Close'].mean() > (global_max - average_range * 0.5)
-            # === 👆 ここまでを新規挿入 👆 ===
             
             # 多層条件分岐によるテキストの動的生成
             analysis_text = ""
-
-         、  # --- パターンA：現在地が高値圏（上昇トレンド・踏み上げ）のロジックを強化 ---
+            
+            # --- パターンA：現在地が高値圏（上昇トレンド・踏み上げ）のロジックを強化 ---
             if current_position_ratio > 0.75:
                 analysis_text += "**【市場支配：高値圏の攻防局面】**\n"
                 analysis_text += f"現在値は指定期間の最高値圏（相対位置: {current_position_ratio:.0%}）に位置し、激しい需給の最終決戦が行われています。\n\n"
@@ -183,7 +180,6 @@ if run_btn:
                         analysis_text += f"直近で {heavy_sell_price:,.0f}円付近に強い売りが観測されていますが、価格がやや押し戻されています。これは新規ショートの圧力だけでなく、下位足で仕込んでいた大口の『利食い売り』が混ざっている可能性があり、一時的な急反落（ブレイクアウトのダマシ）に警戒が必要です。"
                 else:
                     analysis_text += "現在値より上に目立った売り圧力（しこり）の壁は観測されません。売り手の降伏による真空地帯を上昇する買い手優位のダイナミクスが継続しています。"
-
             
             # --- パターンB：現在地が安値圏かつ、パニックからの強い反発（本物の大底・主客逆転） ---
             elif current_position_ratio < 0.35 and is_panic_drop and is_strong_rebound:
