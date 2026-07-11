@@ -7,20 +7,19 @@ from datetime import datetime, timedelta
 
 # ページ設定
 st.set_page_config(layout="wide")
-st.title("Market War Map: Pro Scalping Terminal")
+st.title("Market War Map: Pro Scalping Terminal (σ-Logic)")
 
-# サイドバー
+# サイドバーによる入力
 with st.sidebar:
     st.header("Settings")
     ticker = st.text_input("Ticker Symbol", value="NIY=F")
     
-    # 期間指定：デフォルトは直近3日
+    # 期間指定（デフォルトは過去3日間）
     today = datetime.now()
     default_start = today - timedelta(days=3)
     date_range = st.date_input("Date Range", value=(default_start, today))
     
-    # 標準偏差ベースの感度（Zスコア）
-    # 2.0σなら約2.3%の確率でしか起きない異常値
+    # スパイク感度をσ（標準偏差）単位で指定
     spike_threshold = st.slider("Panic Spike Sensitivity (σ)", 1.0, 3.0, 2.0, 0.1)
     
     run_btn = st.button("Analyze Now")
@@ -34,32 +33,48 @@ if run_btn and len(date_range) == 2:
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
             
-        # ロジック：価格幅の変動
+        # 価格幅の計算
         df['Range'] = df['High'] - df['Low']
         
-        # 過去72本（30分足×72＝36時間分）で統計をとる
+        # 統計的ロジック: 過去72本（36時間分）の平均と標準偏差を使用
         window = 72
-        mean_range = df['Range'].rolling(window).mean()
-        std_range = df['Range'].rolling(window).std()
+        mean_r = df['Range'].rolling(window).mean()
+        std_r = df['Range'].rolling(window).std()
         
-        # Zスコアの算出（これが今回の肝）
-        # 過去の平均からどれだけ標準偏差分外れているか
-        df['Vol_Factor'] = (df['Range'] - mean_range) / std_range
+        # Zスコアの算出 (標準偏差の何倍動いたか)
+        # 負の値は0に丸め、異常値のみを抽出
+        df['Vol_Factor'] = (df['Range'] - mean_r) / std_r
+        df['Vol_Factor'] = df['Vol_Factor'].clip(lower=0)
         
-        # 可視化
-        fig, ax = plt.subplots(figsize=(12, 6))
+        # 可視化ロジック (ビンの作成)
+        bins = np.linspace(float(df['Low'].min()), float(df['High'].max()), 100)
+        labels = bins[:-1] + (bins[1] - bins[0]) / 2
         
-        # パニック判定（しきい値以上の場所をプロット）
-        is_panic = df['Vol_Factor'] > spike_threshold
+        v_profile = np.zeros(len(labels))
+        p_profile = np.zeros(len(labels))
         
-        # 出来高と価格帯の可視化ロジックは以前のものをベースに調整
-        # (簡単のためここでは散布図で表現します)
-        ax.scatter(df.index[~is_panic], df['Close'][~is_panic], color='skyblue', alpha=0.3, label='Normal')
-        ax.scatter(df.index[is_panic], df['Close'][is_panic], color='red', alpha=0.8, label='Panic Spike')
+        # 各足の出来高を価格帯に振り分ける
+        for _, row in df.iterrows():
+            vol = float(row['Volume'])
+            factor = float(row['Vol_Factor'])
+            mask = (labels >= float(row['Low'])) & (labels <= float(row['High']))
+            count = np.sum(mask)
+            if count == 0: continue
+            
+            v_profile[mask] += (vol / count)
+            # 標準偏差ベースの感度を超えたらパニックスパイクとして加算
+            if factor > spike_threshold:
+                p_profile[mask] += (vol * factor / count)
         
-        ax.set_title(f"Market War Map: {ticker} (Threshold: {spike_threshold}σ)")
+        # プロット
+        fig, ax = plt.subplots(figsize=(10, 6))
+        bin_w = bins[1] - bins[0]
+        ax.barh(labels, v_profile, height=bin_w*0.8, color='skyblue', alpha=0.4, label='Volume')
+        ax.barh(labels, p_profile, height=bin_w*0.8, color='red', alpha=0.6, label='Panic Spike')
+        
+        current_price = float(df['Close'].iloc[-1])
+        ax.axhline(y=current_price, color='black', linewidth=2, label=f'Current: {current_price:,.0f}')
+        
+        ax.set_title(f"War Map: {ticker} (Threshold: {spike_threshold}σ)")
         ax.legend()
         st.pyplot(fig)
-        
-        st.write(f"Analyze finished. Data points: {len(df)}")
-      
