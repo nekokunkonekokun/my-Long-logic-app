@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime, time, timedelta
 
 # スマホ向けにレイアウトを「centered」に設定
-st.set_page_config(layout="centered", page_title="Heat Map Mobile Pro")
+st.set_page_config(layout="centered", page_title="War Map Mobile Pro")
 st.title("📱 Market War Map: Intelligence")
 
 # スマホの操作性を考慮し、設定は折りたたみ式のエキスパンダーに集約
@@ -22,7 +22,7 @@ with st.expander("⚙️ 分析設定 (期間・感度)", expanded=False):
     
     spike_threshold = st.slider("感度 (σ)", 1.0, 3.0, 2.0, 0.1)
     
-    # 【アップデート】固定の日数ではなく、全データに対する相対比率で指定
+    # 固定の日数ではなく、全データに対する相対比率で指定
     halflife_ratio = st.slider("時間減衰の鋭さ (全期間に対する比率)", 0.05, 0.50, 0.25, 0.05)
     
     run_btn = st.button("🔥 需給ダイナミクスを分析", use_container_width=True)
@@ -38,8 +38,9 @@ if run_btn:
         # 指定された期間でデータを取得（30分足）
         df = yf.download(ticker, start=start_dt, end=end_dt, interval="30m")
         
+        # 🚨 エラー対策：データが正常に取得できているか、十分な件数があるかをチェック
         if df.empty or len(df) < 10:
-            st.warning("⚠️ 指定した期間に十分なデータ数がありません。期間を広げてください。")
+            st.warning("⚠️ 指定した期間に十分なデータ数がありません。期間を広げるか、市場が開いている時間を選択してください。")
         else:
             # MultiIndexの解除処理
             if isinstance(df.columns, pd.MultiIndex): 
@@ -60,7 +61,7 @@ if run_btn:
             df['Direction'] = np.sign(df['Close'] - df['Open'])
             
             # ==========================================
-            # 1. 【核心】スケール不変型・時間重み付け（Time-decay）
+            # 1. スケール不変型・時間重み付け（Time-decay）
             # ==========================================
             # 全期間の秒数を取得
             total_duration = (df.index[-1] - df.index[0]).total_seconds()
@@ -118,85 +119,84 @@ if run_btn:
             ax.spines['right'].set_visible(False)
             
             st.pyplot(fig, use_container_width=True)
-     # ==========================================
-# 【修正】網羅的需給ダイナミクス・マトリクス
-# ==========================================
-st.subheader("📊 需給インテリジェンス・レポート")
-
-# 1. 基礎データの抽出
-total_len = len(df)
-lookback_count = max(2, int(total_len * 0.20))
-recent_df = df.tail(lookback_count)
-
-# 期間内の全体値幅と現在地の相対位置 (0=最安値, 1=最高値)
-global_min = df['Low'].min()
-global_max = df['High'].max()
-price_range = global_max - global_min if (global_max - global_min) > 0 else 1
-current_position_ratio = (curr - global_min) / price_range
-
-# 直近ウィンドウの最安値とパニック判定
-lowest_idx = recent_df['Low'].idxmin()
-lowest_price = recent_df.loc[lowest_idx, 'Low']
-is_panic_drop = (recent_df.loc[lowest_idx, 'Vol_Factor'] > spike_threshold) and (recent_df.loc[lowest_idx, 'Direction'] < 0)
-
-# パニック後の反発力判定
-average_range = recent_df['Range'].mean()
-rebound_amt = curr - lowest_price
-is_strong_rebound = rebound_amt > (average_range * 1.5)
-
-# 上値の最大しこりゾーンの解析
-upper_zone = df[(df['Low'] > curr)]
-has_upper_wall = False
-is_fresh_short = False
-
-if not upper_zone.empty:
-    heavy_sell_zone = upper_zone.sort_values(by='Vol_Factor', ascending=False).head(1)
-    heavy_sell_price = float(heavy_sell_zone['Close'].iloc[0])
-    heavy_sell_age = float(heavy_sell_zone['Relative_Time_Distance'].iloc[0])
-    
-    # 出来高が一定以上ある場合のみ「壁」とみなす
-    if float(heavy_sell_zone['Vol_Factor'].iloc[0]) > spike_threshold:
-        has_upper_wall = True
-        if heavy_sell_age < 0.25: # 直近25%以内の新しい売り
-            is_fresh_short = True
-
-# 2. 多層条件分岐によるテキストの動的生成
-analysis_text = ""
-
-# --- パターンA：現在地が高値圏（上昇トレンド・踏み上げ） ---
-if current_position_ratio > 0.75:
-    analysis_text += "**【市場支配：踏み上げ（ショートスクイーズ）局面】**\n"
-    analysis_text += f"現在値は指定期間の最高値圏（相対位置: {current_position_ratio:.0%}）を猛烈に売り崩そうとしたショート勢の限界ラインに達しています。\n"
-    
-    if has_upper_wall and is_fresh_short:
-        analysis_text += f"直近で {heavy_sell_price:,.0f}円付近に形成された売りボリュームは、捕まったロングのしこりではなく、上値を抑え込もうとした『新規の強気ショート』です。この水準を明確にブレイクした場合、これらショート勢の買い戻し（強制清算）を巻き込んだ**青天井の踏み上げ相場**に発展する確率が極めて高くなります。"
-    else:
-        analysis_text += "現在値より上に目立った売り圧力（しこり）の壁は観測されません。売り手の降伏による真空地帯を上昇する買い手優位のダイナミクスが継続しています。"
-
-# --- パターンB：現在地が安値圏かつ、パニックからの強い反発（本物の大底・主客逆転） ---
-elif current_position_ratio < 0.35 and is_panic_drop and is_strong_rebound:
-    analysis_text += "**【需給反転：スマートマネーによる吸収（大底の形成）】**\n"
-    analysis_text += f"過去の安値圏において {lowest_price:,.0f}円への垂直落下に伴う激しいSell Panic（投げ売り）が発生しましたが、そこから現在の {curr:,.0f}円までV字の力強い反発が確認されています。\n"
-    analysis_text += "これは、パニックに陥った個人投資家の投げ玉を、大口投資家（スマートマネー）が下値で完全に吸収し尽くした（ドレインした）動かぬ証拠です。**過去のしこり玉は完全に清算（リセット）され、需給の主客逆転が完了した『絶好の仕込み時』の構造**を示しています。"
-
-# --- パターンC：現在地が安値圏だが、反発せず張り付き（落ちてくるナイフ・罠） ---
-elif current_position_ratio < 0.35 and is_panic_drop and not is_strong_rebound:
-    analysis_text += "**【危険地帯：偽の底打ち・セリングクライマックス未遂】**\n"
-    analysis_text += f"直近で {lowest_price:,.0f}円への急落と激しいパニック売りが発生していますが、現在値はその安値圏から全く浮上できていません。\n"
-    analysis_text += "これは『投げ売りは出たが、それを上回る大口の買い手がまだ市場に参入していない』ことを意味します。過去の捕まり玉が清算されたからといって安易に反転を期待すべきではなく、**買い手不在のまま底が抜ける「落ちてくるナイフ」の典型例**です。静観を推奨します。"
-
-# --- パターンD：現在地が中間のレンジ圏で、上に明確な古いしこりがある（上値が重い） ---
-elif 0.35 <= current_position_ratio <= 0.75 and has_upper_wall and not is_fresh_short:
-    analysis_text += "**【上値重配：過去の遺恨（しこり玉）による阻害】**\n"
-    analysis_text += f"現在値はレンジの中間帯に位置していますが、上値の {heavy_sell_price:,.0f}円付近に、時間減衰を経てもなお根深く残る過去の巨大な買いスタック（捕まり玉）がそびえ立っています。\n"
-    analysis_text += "価格が上昇するたびに、これら『助かりたいロング勢』のやれやれ売り（同値撤退注文）が降ってくるため、需給構造としては非常に上値が重く、ブレイクには相当なエネルギー（材料や大口の圧倒的な買い）が必要です。"
-
-# --- パターンE：それ以外のニュートラル・レンジ状態 ---
-else:
-    analysis_text += "**【均衡状態：需給のパワーバランス拮抗】**\n"
-    analysis_text += f"現在の価格（相対位置: {current_position_ratio:.0%}）付近では、直近で極端なパニック売買や大口の仕込みの偏りは見られません。\n"
-    analysis_text += "過去の清算イベントの影響はすでに薄れており、市場は次の明確なトレンドや大口の仕掛け（ブレイクアウト）を待つ方向感のない均衡状態（パワーバランスのニュートラル）にあります。"
-
-st.chat_message("assistant").write(analysis_text)
-
-           
+            
+            # ==========================================
+            # 2. エラーガード付き・網羅的需給ダイナミクス解析
+            # ==========================================
+            st.subheader("📊 需給インテリジェンス・レポート")
+            
+            # 再度 df の安全性を担保した上で解析をスタート
+            total_len = len(df)
+            lookback_count = max(2, int(total_len * 0.20))
+            recent_df = df.tail(lookback_count)
+            
+            # 期間内の全体値幅と現在地の相対位置 (0=最安値, 1=最高値)
+            global_min = float(df['Low'].min())
+            global_max = float(df['High'].max())
+            price_range = global_max - global_min if (global_max - global_min) > 0 else 1
+            current_position_ratio = (curr - global_min) / price_range
+            
+            # 直近ウィンドウの最安値とパニック判定
+            lowest_idx = recent_df['Low'].idxmin()
+            lowest_price = float(recent_df.loc[lowest_idx, 'Low'])
+            is_panic_drop = (recent_df.loc[lowest_idx, 'Vol_Factor'] > spike_threshold) and (recent_df.loc[lowest_idx, 'Direction'] < 0)
+            
+            # パニック後の反発力判定
+            average_range = recent_df['Range'].mean()
+            rebound_amt = curr - lowest_price
+            is_strong_rebound = rebound_amt > (average_range * 1.5)
+            
+            # 上値の最大しこりゾーンの解析
+            upper_zone = df[(df['Low'] > curr)]
+            has_upper_wall = False
+            is_fresh_short = False
+            
+            if not upper_zone.empty:
+                heavy_sell_zone = upper_zone.sort_values(by='Vol_Factor', ascending=False).head(1)
+                heavy_sell_price = float(heavy_sell_zone['Close'].iloc[0])
+                heavy_sell_age = float(heavy_sell_zone['Relative_Time_Distance'].iloc[0])
+                
+                # 出来高が一定以上ある場合のみ「壁」とみなす
+                if float(heavy_sell_zone['Vol_Factor'].iloc[0]) > spike_threshold:
+                    has_upper_wall = True
+                    if heavy_sell_age < 0.25: # 直近25%以内の新しい売り
+                        is_fresh_short = True
+            
+            # 多層条件分岐によるテキストの動的生成
+            analysis_text = ""
+            
+            # --- パターンA：現在地が高値圏（上昇トレンド・踏み上げ） ---
+            if current_position_ratio > 0.75:
+                analysis_text += "**【市場支配：踏み上げ（ショートスクイーズ）局面】**\n"
+                analysis_text += f"現在値は指定期間の最高値圏（相対位置: {current_position_ratio:.0%}）を猛烈に売り崩しようとしたショート勢の限界ラインに達しています。\n\n"
+                
+                if has_upper_wall and is_fresh_short:
+                    analysis_text += f"直近で {heavy_sell_price:,.0f}円付近に形成された売りボリュームは、捕まったロングのしこりではなく、上値を抑え込もうとした『新規の強気ショート』です。この水準を明確にブレイクした場合、これらショート勢の買い戻し（強制清算）を巻き込んだ**青天井の踏み上げ相場**に発展する確率が極めて高くなります。"
+                else:
+                    analysis_text += "現在値より上に目立った売り圧力（しこり）の壁は観測されません。売り手の降伏による真空地帯を上昇する買い手優位のダイナミクスが継続しています。"
+            
+            # --- パターンB：現在地が安値圏かつ、パニックからの強い反発（本物の大底・主客逆転） ---
+            elif current_position_ratio < 0.35 and is_panic_drop and is_strong_rebound:
+                analysis_text += "**【需給反転：スマートマネーによる吸収（大底の形成）】**\n"
+                analysis_text += f"過去の安値圏において {lowest_price:,.0f}円への垂直落下に伴う激しいSell Panic（投げ売り）が発生しましたが、そこから現在の {curr:,.0f}円までV字の力強い反発が確認されています。\n\n"
+                analysis_text += "これは、パニックに陥った個人投資家の投げ玉を、大口投資家（スマートマネー）が下値で完全に吸収し尽くした（ドレインした）動かぬ証拠です。**過去のしこり玉は完全に清算（リセット）され、需給の主客逆転が完了した『絶好の仕込み時』の構造**を示しています。"
+            
+            # --- パターンC：現在地が安値圏だが、反発せず張り付き（落ちてくるナイフ・罠） ---
+            elif current_position_ratio < 0.35 and is_panic_drop and not is_strong_rebound:
+                analysis_text += "**【危険地帯：偽の底打ち・セリングクライマックス未遂】**\n"
+                analysis_text += f"直近で {lowest_price:,.0f}円への急落と激しいパニック売りが発生していますが、現在値はその安値圏から全く浮上できていません。\n\n"
+                analysis_text += "これは『投げ売りは出たが、それを上回る大口の買い手がまだ市場に参入していない』ことを意味します。過去の捕まり玉が清算されたからといって安易に反転を期待すべきではなく、**買い手不在のまま底が抜ける「落ちてくるナイフ」の典型例**です。静観を推奨します。"
+            
+            # --- パターンD：現在地が中間のレンジ圏で、上に明確な古いしこりがある（上値が重い） ---
+            elif 0.35 <= current_position_ratio <= 0.75 and has_upper_wall and not is_fresh_short:
+                analysis_text += "**【上値重配：過去の遺恨（しこり玉）による阻害】**\n"
+                analysis_text += f"現在値はレンジの中間帯に位置していますが、上値の {heavy_sell_price:,.0f}円付近に、時間減衰を経てもなお根深く残る過去の巨大な買いスタック（捕まり玉）がそびえ立っています。\n\n"
+                analysis_text += "価格が上昇するたびに、これら『助かりたいロング勢』のやれやれ売り（同値撤退注文）が降ってくるため、需給構造としては非常に上値が重く、ブレイクには相当なエネルギー（材料や大口の圧倒的な買い）が必要です。"
+            
+            # --- パターンE：それ以外のニュートラル・レンジ状態 ---
+            else:
+                analysis_text += "**【均衡状態：需給のパワーバランス拮抗】**\n"
+                analysis_text += f"現在の価格（相対位置: {current_position_ratio:.0%}）付近では、直近で極端なパニック売買や大口の仕込みの偏りは見られません。\n\n"
+                analysis_text += "過去の清算イベントの影響はすでに薄れており、市場は次の明確なトレンドや大口の仕掛け（ブレイクアウト）を待つ方向感のない均衡状態（パワーバランスのニュートラル）にあります。"
+            
+            st.chat_message("assistant").write(analysis_text)
