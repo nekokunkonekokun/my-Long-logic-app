@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime, time, timedelta
 
 # スマホ向けにレイアウトを「centered」に設定
-st.set_page_config(layout="centered", page_title="War Map Mobile Pro")
+st.set_page_config(layout="centered", page_title="Heat Map Mobile Pro")
 st.title("📱 Market War Map: Intelligence")
 
 # スマホの操作性を考慮し、設定は折りたたみ式のエキスパンダーに集約
