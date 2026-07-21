@@ -5,11 +5,7 @@ import matplotlib.ticker as ticker
 from datetime import timedelta
 
 st.set_page_config(layout="wide")
-st.title("NIY=F 1hour×575 Chart")
-
-# P50の最高値を記憶するセッションステート
-if 'p50_fixed' not in st.session_state:
-    st.session_state.p50_fixed = 0.0
+st.title("NIY=F 1hour×575 Chart (Mean Reversion)")
 
 @st.cache_data(ttl=3600)
 def get_data():
@@ -18,33 +14,29 @@ def get_data():
     return df
 
 df = get_data()
-current_max = df['Close'].max().item()
 
-# 新高値が出たら更新（追従して固定）
-if current_max > st.session_state.p50_fixed:
-    st.session_state.p50_fixed = current_max
+# 575本の移動平均（SMA）と標準偏差（STD）の計算
+WINDOW = 575
+df['SMA'] = df['Close'].rolling(window=WINDOW).mean()
+df['STD'] = df['Close'].rolling(window=WINDOW).std()
 
-p50 = st.session_state.p50_fixed
-# 標準偏差（575本）を計算
-std = df['Close'].rolling(window=575).std().iloc[-1].item()
 current = df['Close'].iloc[-1].item()
+sma = df['SMA'].iloc[-1].item()
+std = df['STD'].iloc[-1].item()
 
-# P50を基準に他のラインを計算（P50と一緒にスライドする）
+# 平均（SMA）を基準に上下へラインを展開（P50 = SMA）
 price_levels = {
-    "P50": p50,
-    "P48": p50 - (1 * std),
-    "P45": p50 - (2 * std),
-    "P40": p50 - (3 * std),
-    "P35": p50 - (4 * std)
+    "P65 (+3σ)": sma + (3 * std),
+    "P60 (+2σ)": sma + (2 * std),
+    "P55 (+1σ)": sma + (1 * std),
+    "P50 (SMA)": sma,
+    "P45 (-1σ)": sma - (1 * std),
+    "P40 (-2σ)": sma - (2 * std),
+    "P35 (-3σ)": sma - (3 * std)
 }
 
-# Dev計算
-if current >= price_levels["P48"]:
-    current_dev = 48 + (50 - 48) * (current - price_levels["P48"]) / (p50 - price_levels["P48"])
-elif current >= price_levels["P45"]:
-    current_dev = 45 + (48 - 45) * (current - price_levels["P45"]) / (price_levels["P48"] - price_levels["P45"])
-else:
-    current_dev = 40 + (45 - 40) * (current - price_levels["P40"]) / (price_levels["P45"] - price_levels["P40"])
+# 平均回帰型 Dev (偏差値) 計算： 1σ離れるごとに Dev が 5 変動する設定
+current_dev = 50 + ((current - sma) / std) * 5
 
 # グラフ描画
 tail_df = df.tail(168)
@@ -52,12 +44,23 @@ fig, ax = plt.subplots(figsize=(16, 7))
 ax.plot(range(len(tail_df)), tail_df['Close'], color='black', lw=1.5)
 ax.set_xlim(0, len(tail_df) - 1)
 
-# 破線と凡例の描画
-colors = {'P50': 'red', 'P48': 'green', 'P45': 'blue', 'P40': 'brown', 'P35': 'gray'}
-for label, price in price_levels.items():
-    ax.axhline(price, color=colors[label], linestyle='--', alpha=0.6)
+# 破線と凡例の描画（中心のP50を強調）
+colors = {
+    "P65 (+3σ)": 'brown',
+    "P60 (+2σ)": 'blue',
+    "P55 (+1σ)": 'green',
+    "P50 (SMA)": 'red',
+    "P45 (-1σ)": 'green',
+    "P40 (-2σ)": 'blue',
+    "P35 (-3σ)": 'brown'
+}
 
-# 凡例ボックス（左下） - 変更せず維持
+for label, price in price_levels.items():
+    style = '-' if "SMA" in label else '--'
+    alpha = 0.8 if "SMA" in label else 0.5
+    ax.axhline(price, color=colors[label], linestyle=style, alpha=alpha)
+
+# 凡例ボックス（左下）
 panel_text = f"Current: {current:.0f}\nDev: {current_dev:.1f}\n" + \
              "\n".join([f"{k}: {p:.0f}" for k, p in price_levels.items()])
 ax.text(0.01, 0.02, panel_text, transform=ax.transAxes, fontsize=10, 
@@ -84,16 +87,18 @@ st.pyplot(fig, use_container_width=True)
 # ---------------------------------------------------------
 # 追加部分: チャートの外に独立して分かりやすく並ぶ文字（インジケーター）
 # ---------------------------------------------------------
-st.write("---")  # 区切り線
-st.subheader("📊 Strategic Metrics Panel")
+st.write("---")
+st.subheader("📊 Strategic Metrics Panel (Mean Reversion)")
 
-# 7列に分割して大きな文字カードを横並びにする
-cols = st.columns(7)
+# 9列に分割して配置（全レベル表示）
+cols = st.columns(9)
 
 cols[0].metric(label="Current Price", value=f"{current:.0f}")
 cols[1].metric(label="Current Dev", value=f"{current_dev:.1f}")
-cols[2].metric(label="P50 (Max Fixed)", value=f"{price_levels['P50']:.0f}")
-cols[3].metric(label="P48 (-1σ)", value=f"{price_levels['P48']:.0f}")
-cols[4].metric(label="P45 (-2σ)", value=f"{price_levels['P45']:.0f}")
-cols[5].metric(label="P40 (-3σ)", value=f"{price_levels['P40']:.0f}")
-cols[6].metric(label="P35 (-4σ)", value=f"{price_levels['P35']:.0f}")
+cols[2].metric(label="P65 (+3σ)", value=f"{price_levels['P65 (+3σ)']:.0f}")
+cols[3].metric(label="P60 (+2σ)", value=f"{price_levels['P60 (+2σ)']:.0f}")
+cols[4].metric(label="P55 (+1σ)", value=f"{price_levels['P55 (+1σ)']:.0f}")
+cols[5].metric(label="P50 (SMA)", value=f"{price_levels['P50 (SMA)']:.0f}")
+cols[6].metric(label="P45 (-1σ)", value=f"{price_levels['P45 (-1σ)']:.0f}")
+cols[7].metric(label="P40 (-2σ)", value=f"{price_levels['P40 (-2σ)']:.0f}")
+cols[8].metric(label="P35 (-3σ)", value=f"{price_levels['P35 (-3σ)']:.0f}")
